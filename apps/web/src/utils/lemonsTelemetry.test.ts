@@ -1,26 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { AppSettingsUpdate } from "../types/appSettings";
+import { DEFAULT_APP_SETTINGS } from "../types/appSettings";
 import type { TelemetrySnapshot } from "../types/telemetry";
 import { buildDriverLemonsViewModel, buildDriverNormalViewModel } from "./lemonsTelemetry";
 
-const SETTINGS: AppSettingsUpdate = {
-  thresholds: {
-    oil_pressure_warning_bar: 1.5,
-    oil_pressure_critical_bar: 1.0,
-    water_temp_warning_c: 105,
-    water_temp_critical_c: 112,
-    oil_temp_warning_c: 120,
-    oil_temp_critical_c: 130,
-    fuel_level_warning_percent: 15,
-  },
-  display: {
-    speed_unit: "kph",
-    temperature_unit: "celsius",
-    pressure_unit: "bar",
-    default_driver_mode: "lemons",
-  },
-};
+const THRESHOLDS = DEFAULT_APP_SETTINGS.shared.thresholds;
+const DISPLAY = DEFAULT_APP_SETTINGS.shared.units;
 
 function buildSnapshot(overrides?: Partial<TelemetrySnapshot>): TelemetrySnapshot {
   return {
@@ -83,8 +68,8 @@ describe("buildDriverLemonsViewModel", () => {
         started_at: "2026-03-18T20:58:00.000Z",
       },
       streamStatus: "connected",
-      thresholds: SETTINGS.thresholds,
-      displayPreferences: SETTINGS.display,
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
     });
 
     expect(view.alerts).toHaveLength(0);
@@ -117,8 +102,8 @@ describe("buildDriverLemonsViewModel", () => {
       }),
       session: null,
       streamStatus: "connected",
-      thresholds: SETTINGS.thresholds,
-      displayPreferences: SETTINGS.display,
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
     });
 
     expect(view.alerts[0]?.title).toBe("OIL PRESSURE CRITICAL");
@@ -132,8 +117,8 @@ describe("buildDriverLemonsViewModel", () => {
       snapshot: null,
       session: null,
       streamStatus: "disconnected",
-      thresholds: SETTINGS.thresholds,
-      displayPreferences: SETTINGS.display,
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
     });
 
     expect(view.alerts[0]?.title).toBe("TELEMETRY SIGNAL LOST");
@@ -158,8 +143,8 @@ describe("buildDriverLemonsViewModel", () => {
       }),
       session: null,
       streamStatus: "connected",
-      thresholds: SETTINGS.thresholds,
-      displayPreferences: SETTINGS.display,
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
     });
 
     expect(view.alerts.some((alert) => alert.title === "OIL TEMP SENSOR UNAVAILABLE")).toBe(true);
@@ -179,8 +164,8 @@ describe("buildDriverNormalViewModel", () => {
         started_at: "2026-03-18T20:58:00.000Z",
       },
       streamStatus: "connected",
-      thresholds: SETTINGS.thresholds,
-      displayPreferences: SETTINGS.display,
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
     });
 
     expect(view.focus.rpm.detail).toBe("Shift soon");
@@ -208,8 +193,8 @@ describe("buildDriverNormalViewModel", () => {
       }),
       session: null,
       streamStatus: "connected",
-      thresholds: SETTINGS.thresholds,
-      displayPreferences: SETTINGS.display,
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
     });
 
     expect(view.timingMetrics.every((metric) => metric.state === "unavailable")).toBe(true);

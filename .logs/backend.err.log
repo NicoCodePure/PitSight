@@ -1,15 +1,21 @@
-INFO:     Started server process [33220]
+INFO:     Will watch for changes in these directories: ['C:\\Users\\nicon\\Documents\\GitHub\\PitSight']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [45672] using WatchFiles
+INFO:     Started server process [30636]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:56422 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection closed
+INFO:     127.0.0.1:57642 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
 ERROR:    Exception in ASGI application
 Traceback (most recent call last):
   File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 329, in asgi_send
     await self.send(data)  # type: ignore[arg-type]
     ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 618, in send
+  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 630, in send
+    await self.write_frame(True, opcode, data)
+  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 1184, in write_frame
+    await self.drain()
+  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 1173, in drain
     await self.ensure_open()
   File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 916, in ensure_open
     raise self.connection_closed_exc()
@@ -67,260 +73,15 @@ Traceback (most recent call last):
     await func(session)
   File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 760, in app
     await dependant.call(**solved_result.values)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\api\routes\stream.py", line 12, in telemetry_stream
+  File "C:\Users\nicon\Documents\GitHub\PitSight\apps/api/src\pitsight_api\api\routes\stream.py", line 12, in telemetry_stream
     await service.register_websocket(websocket)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\services\telemetry_service.py", line 113, in register_websocket
+  File "C:\Users\nicon\Documents\GitHub\PitSight\apps/api/src\pitsight_api\services\telemetry_service.py", line 113, in register_websocket
     await websocket.send_json(self._latest_snapshot.model_dump(mode="json"))
   File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 176, in send_json
     await self.send({"type": "websocket.send", "text": text})
   File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 89, in send
     raise WebSocketDisconnect(code=1006)
 starlette.websockets.WebSocketDisconnect
-INFO:     127.0.0.1:54768 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
 INFO:     connection closed
-INFO:     127.0.0.1:64910 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:56186 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:50385 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:59444 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection closed
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 329, in asgi_send
-    await self.send(data)  # type: ignore[arg-type]
-    ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 618, in send
-    await self.ensure_open()
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 916, in ensure_open
-    raise self.connection_closed_exc()
-websockets.exceptions.ConnectionClosedError: no close frame received or sent
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 86, in send
-    await self._send(message)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 39, in sender
-    await send(message)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 342, in asgi_send
-    raise ClientDisconnected from exc
-uvicorn.protocols.utils.ClientDisconnected
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 244, in run_asgi
-    result = await self.app(self.scope, self.asgi_receive, self.asgi_send)  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
-    await super().__call__(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\cors.py", line 79, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 736, in app
-    await route.handle(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 364, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 156, in app
-    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 153, in app
-    await func(session)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 760, in app
-    await dependant.call(**solved_result.values)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\api\routes\stream.py", line 12, in telemetry_stream
-    await service.register_websocket(websocket)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\services\telemetry_service.py", line 113, in register_websocket
-    await websocket.send_json(self._latest_snapshot.model_dump(mode="json"))
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 176, in send_json
-    await self.send({"type": "websocket.send", "text": text})
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 89, in send
-    raise WebSocketDisconnect(code=1006)
-starlette.websockets.WebSocketDisconnect
-INFO:     127.0.0.1:56031 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:54430 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection closed
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 329, in asgi_send
-    await self.send(data)  # type: ignore[arg-type]
-    ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 618, in send
-    await self.ensure_open()
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 916, in ensure_open
-    raise self.connection_closed_exc()
-websockets.exceptions.ConnectionClosedError: no close frame received or sent
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 86, in send
-    await self._send(message)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 39, in sender
-    await send(message)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 342, in asgi_send
-    raise ClientDisconnected from exc
-uvicorn.protocols.utils.ClientDisconnected
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 244, in run_asgi
-    result = await self.app(self.scope, self.asgi_receive, self.asgi_send)  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
-    await super().__call__(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\cors.py", line 79, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 736, in app
-    await route.handle(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 364, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 156, in app
-    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 153, in app
-    await func(session)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 760, in app
-    await dependant.call(**solved_result.values)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\api\routes\stream.py", line 12, in telemetry_stream
-    await service.register_websocket(websocket)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\services\telemetry_service.py", line 113, in register_websocket
-    await websocket.send_json(self._latest_snapshot.model_dump(mode="json"))
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 176, in send_json
-    await self.send({"type": "websocket.send", "text": text})
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 89, in send
-    raise WebSocketDisconnect(code=1006)
-starlette.websockets.WebSocketDisconnect
-INFO:     127.0.0.1:53771 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:55302 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection closed
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 329, in asgi_send
-    await self.send(data)  # type: ignore[arg-type]
-    ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 618, in send
-    await self.ensure_open()
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\websockets\legacy\protocol.py", line 916, in ensure_open
-    raise self.connection_closed_exc()
-websockets.exceptions.ConnectionClosedError: no close frame received or sent
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 86, in send
-    await self._send(message)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 39, in sender
-    await send(message)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 342, in asgi_send
-    raise ClientDisconnected from exc
-uvicorn.protocols.utils.ClientDisconnected
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py", line 244, in run_asgi
-    result = await self.app(self.scope, self.asgi_receive, self.asgi_send)  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\applications.py", line 1160, in __call__
-    await super().__call__(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\cors.py", line 79, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 736, in app
-    await route.handle(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\routing.py", line 364, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 156, in app
-    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 153, in app
-    await func(session)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\fastapi\routing.py", line 760, in app
-    await dependant.call(**solved_result.values)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\api\routes\stream.py", line 12, in telemetry_stream
-    await service.register_websocket(websocket)
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\src\pitsight_api\services\telemetry_service.py", line 113, in register_websocket
-    await websocket.send_json(self._latest_snapshot.model_dump(mode="json"))
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 176, in send_json
-    await self.send({"type": "websocket.send", "text": text})
-  File "C:\Users\nicon\Documents\GitHub\PitSight\apps\api\.venv\Lib\site-packages\starlette\websockets.py", line 89, in send
-    raise WebSocketDisconnect(code=1006)
-starlette.websockets.WebSocketDisconnect
-INFO:     127.0.0.1:64453 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:57630 - "WebSocket /ws/telemetry" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     127.0.0.1:58513 - "WebSocket /ws/telemetry" [accepted]
+INFO:     127.0.0.1:62003 - "WebSocket /ws/telemetry" [accepted]
 INFO:     connection open

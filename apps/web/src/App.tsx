@@ -2,18 +2,40 @@ import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom"
 
 import { useAppSettings } from "./hooks/useAppSettings";
 import { useTelemetryStream } from "./hooks/useTelemetryStream";
-import type { DriverMode } from "./types/appSettings";
+import type { AppSettingsSnapshot, DashboardMode } from "./types/appSettings";
 import { DriverLemonsPage } from "./pages/DriverLemonsPage";
 import { DriverNormalPage } from "./pages/DriverNormalPage";
 import { PitDashboardPage } from "./pages/PitDashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
+function getDashboardRoute(settings: AppSettingsSnapshot): string {
+  const requestedMode = settings.device_local.display.default_dashboard_mode;
+  const appliedMode: DashboardMode =
+    requestedMode === "last_used" ? settings.sync.applied_dashboard_mode : requestedMode;
+
+  const effectiveMode: DashboardMode =
+    appliedMode === "last_used"
+      ? settings.shared.display.preferred_driver_mode === "lemons"
+        ? "driver_lemons"
+        : "driver_normal"
+      : appliedMode;
+
+  switch (effectiveMode) {
+    case "driver_lemons":
+      return "/driver/lemons";
+    case "driver_normal":
+      return "/driver/normal";
+    case "pit_dashboard":
+      return "/pit";
+  }
+}
+
 function HomeRedirect({
   loading,
-  defaultDriverMode,
+  settings,
 }: {
   loading: boolean;
-  defaultDriverMode: DriverMode;
+  settings: AppSettingsSnapshot;
 }) {
   if (loading) {
     return (
@@ -26,7 +48,7 @@ function HomeRedirect({
     );
   }
 
-  return <Navigate to={`/driver/${defaultDriverMode}`} replace />;
+  return <Navigate to={getDashboardRoute(settings)} replace />;
 }
 
 export default function App() {
@@ -57,20 +79,15 @@ export default function App() {
       <Routes>
         <Route
           path="/"
-          element={
-            <HomeRedirect
-              loading={appSettings.loading}
-              defaultDriverMode={appSettings.settings.display.default_driver_mode}
-            />
-          }
+          element={<HomeRedirect loading={appSettings.loading} settings={appSettings.settings} />}
         />
         <Route
           path="/driver/normal"
           element={
             <DriverNormalPage
               {...telemetry}
-              displayPreferences={appSettings.settings.display}
-              thresholds={appSettings.settings.thresholds}
+              displayPreferences={appSettings.settings.shared.units}
+              thresholds={appSettings.settings.shared.thresholds}
             />
           }
         />
@@ -79,14 +96,14 @@ export default function App() {
           element={
             <DriverLemonsPage
               {...telemetry}
-              displayPreferences={appSettings.settings.display}
-              thresholds={appSettings.settings.thresholds}
+              displayPreferences={appSettings.settings.shared.units}
+              thresholds={appSettings.settings.shared.thresholds}
             />
           }
         />
         <Route
           path="/pit"
-          element={<PitDashboardPage {...telemetry} displayPreferences={appSettings.settings.display} />}
+          element={<PitDashboardPage {...telemetry} settings={appSettings.settings} />}
         />
         <Route
           path="/settings"

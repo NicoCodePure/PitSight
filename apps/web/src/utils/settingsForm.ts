@@ -1,7 +1,7 @@
 import type {
   AlertThresholdSettings,
   AppSettingsSnapshot,
-  AppSettingsUpdate,
+  DisplayPreferences,
 } from "../types/appSettings";
 import {
   formatPressureThresholdInput,
@@ -14,23 +14,275 @@ import {
 export type ThresholdFieldName = keyof AlertThresholdSettings;
 export type ThresholdInputState = Record<ThresholdFieldName, string>;
 export type ThresholdFieldErrors = Partial<Record<ThresholdFieldName, string>>;
+export type ThresholdUnitKind = "pressure" | "temperature" | "voltage" | "delta" | "percent";
 
-const THRESHOLD_LABELS: Record<ThresholdFieldName, string> = {
-  oil_pressure_warning_bar: "Oil pressure warning",
-  oil_pressure_critical_bar: "Oil pressure critical",
-  water_temp_warning_c: "Water temp warning",
-  water_temp_critical_c: "Water temp critical",
-  oil_temp_warning_c: "Oil temp warning",
-  oil_temp_critical_c: "Oil temp critical",
-  fuel_level_warning_percent: "Low fuel warning",
+export interface ThresholdFieldDefinition {
+  field: ThresholdFieldName;
+  label: string;
+  helper: string;
+  unitKind: ThresholdUnitKind;
+}
+
+export interface ThresholdGroupDefinition {
+  id: string;
+  label: string;
+  description: string;
+  fields: ThresholdFieldDefinition[];
+}
+
+interface ThresholdRuleGroup {
+  direction: "asc" | "desc";
+  fields: ThresholdFieldName[];
+  message: string;
+}
+
+const THRESHOLD_FIELD_DEFINITIONS: Record<ThresholdFieldName, ThresholdFieldDefinition> = {
+  oil_pressure_advisory_bar: {
+    field: "oil_pressure_advisory_bar",
+    label: "Oil Pressure Advisory",
+    helper: "Early caution floor before the warning state.",
+    unitKind: "pressure",
+  },
+  oil_pressure_warning_bar: {
+    field: "oil_pressure_warning_bar",
+    label: "Oil Pressure Warning",
+    helper: "Driver should notice now if pressure falls below this point.",
+    unitKind: "pressure",
+  },
+  oil_pressure_critical_bar: {
+    field: "oil_pressure_critical_bar",
+    label: "Oil Pressure Critical",
+    helper: "Immediate engine risk below this minimum.",
+    unitKind: "pressure",
+  },
+  water_temp_advisory_c: {
+    field: "water_temp_advisory_c",
+    label: "Coolant Temp Advisory",
+    helper: "Early rising-temperature caution.",
+    unitKind: "temperature",
+  },
+  water_temp_warning_c: {
+    field: "water_temp_warning_c",
+    label: "Coolant Temp Warning",
+    helper: "Driver should notice the coolant trend here.",
+    unitKind: "temperature",
+  },
+  water_temp_critical_c: {
+    field: "water_temp_critical_c",
+    label: "Coolant Temp Critical",
+    helper: "Critical thermal threshold.",
+    unitKind: "temperature",
+  },
+  oil_temp_advisory_c: {
+    field: "oil_temp_advisory_c",
+    label: "Oil Temp Advisory",
+    helper: "Early oil heat caution.",
+    unitKind: "temperature",
+  },
+  oil_temp_warning_c: {
+    field: "oil_temp_warning_c",
+    label: "Oil Temp Warning",
+    helper: "Driver warning threshold for oil temperature.",
+    unitKind: "temperature",
+  },
+  oil_temp_critical_c: {
+    field: "oil_temp_critical_c",
+    label: "Oil Temp Critical",
+    helper: "Critical oil temperature threshold.",
+    unitKind: "temperature",
+  },
+  battery_voltage_advisory_v: {
+    field: "battery_voltage_advisory_v",
+    label: "Battery Advisory",
+    helper: "Early low-voltage caution floor.",
+    unitKind: "voltage",
+  },
+  battery_voltage_warning_v: {
+    field: "battery_voltage_warning_v",
+    label: "Battery Warning",
+    helper: "Driver should notice sustained low voltage here.",
+    unitKind: "voltage",
+  },
+  battery_voltage_critical_v: {
+    field: "battery_voltage_critical_v",
+    label: "Battery Critical",
+    helper: "Critical low-voltage threshold.",
+    unitKind: "voltage",
+  },
+  fuel_pressure_advisory_bar: {
+    field: "fuel_pressure_advisory_bar",
+    label: "Fuel Pressure Advisory",
+    helper: "Early caution floor for fuel supply pressure.",
+    unitKind: "pressure",
+  },
+  fuel_pressure_warning_bar: {
+    field: "fuel_pressure_warning_bar",
+    label: "Fuel Pressure Warning",
+    helper: "Driver warning floor for fuel pressure.",
+    unitKind: "pressure",
+  },
+  fuel_pressure_critical_bar: {
+    field: "fuel_pressure_critical_bar",
+    label: "Fuel Pressure Critical",
+    helper: "Critical fuel pressure floor.",
+    unitKind: "pressure",
+  },
+  lambda_advisory_delta: {
+    field: "lambda_advisory_delta",
+    label: "Lambda Advisory",
+    helper: "Allowed deviation before a caution state.",
+    unitKind: "delta",
+  },
+  lambda_warning_delta: {
+    field: "lambda_warning_delta",
+    label: "Lambda Warning",
+    helper: "Warning deviation from target lambda.",
+    unitKind: "delta",
+  },
+  lambda_critical_delta: {
+    field: "lambda_critical_delta",
+    label: "Lambda Critical",
+    helper: "Critical deviation from target lambda.",
+    unitKind: "delta",
+  },
+  fuel_level_warning_percent: {
+    field: "fuel_level_warning_percent",
+    label: "Fuel Level Warning",
+    helper: "Warn when usable fuel drops below this level.",
+    unitKind: "percent",
+  },
 };
 
-const SANITY_LIMITS = {
-  oil_pressure_bar: { min: 0.1, max: 10 },
-  water_temp_c: { min: 20, max: 180 },
-  oil_temp_c: { min: 20, max: 220 },
-  fuel_percent: { min: 0, max: 100 },
-} as const;
+export const THRESHOLD_GROUPS: ThresholdGroupDefinition[] = [
+  {
+    id: "lubrication",
+    label: "Lubrication",
+    description: "Oil pressure floors for advisory, warning, and critical engine survival states.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.oil_pressure_advisory_bar,
+      THRESHOLD_FIELD_DEFINITIONS.oil_pressure_warning_bar,
+      THRESHOLD_FIELD_DEFINITIONS.oil_pressure_critical_bar,
+    ],
+  },
+  {
+    id: "cooling",
+    label: "Cooling",
+    description: "Coolant temperature escalation thresholds.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.water_temp_advisory_c,
+      THRESHOLD_FIELD_DEFINITIONS.water_temp_warning_c,
+      THRESHOLD_FIELD_DEFINITIONS.water_temp_critical_c,
+    ],
+  },
+  {
+    id: "oil-temp",
+    label: "Oil Temperature",
+    description: "Oil temperature escalation thresholds.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.oil_temp_advisory_c,
+      THRESHOLD_FIELD_DEFINITIONS.oil_temp_warning_c,
+      THRESHOLD_FIELD_DEFINITIONS.oil_temp_critical_c,
+    ],
+  },
+  {
+    id: "electrical",
+    label: "Electrical",
+    description: "Battery voltage floors for low-voltage detection.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.battery_voltage_advisory_v,
+      THRESHOLD_FIELD_DEFINITIONS.battery_voltage_warning_v,
+      THRESHOLD_FIELD_DEFINITIONS.battery_voltage_critical_v,
+    ],
+  },
+  {
+    id: "fuel",
+    label: "Fuel",
+    description: "Fuel pressure floors and the low-fuel reserve warning.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.fuel_pressure_advisory_bar,
+      THRESHOLD_FIELD_DEFINITIONS.fuel_pressure_warning_bar,
+      THRESHOLD_FIELD_DEFINITIONS.fuel_pressure_critical_bar,
+      THRESHOLD_FIELD_DEFINITIONS.fuel_level_warning_percent,
+    ],
+  },
+  {
+    id: "lambda",
+    label: "Lambda / AFR",
+    description: "Deviation from target mixture before advisory, warning, and critical states.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.lambda_advisory_delta,
+      THRESHOLD_FIELD_DEFINITIONS.lambda_warning_delta,
+      THRESHOLD_FIELD_DEFINITIONS.lambda_critical_delta,
+    ],
+  },
+];
+
+const THRESHOLD_RULE_GROUPS: ThresholdRuleGroup[] = [
+  {
+    direction: "desc",
+    fields: [
+      "oil_pressure_advisory_bar",
+      "oil_pressure_warning_bar",
+      "oil_pressure_critical_bar",
+    ],
+    message: "Oil pressure thresholds must remain advisory > warning > critical.",
+  },
+  {
+    direction: "asc",
+    fields: ["water_temp_advisory_c", "water_temp_warning_c", "water_temp_critical_c"],
+    message: "Coolant temp thresholds must remain advisory < warning < critical.",
+  },
+  {
+    direction: "asc",
+    fields: ["oil_temp_advisory_c", "oil_temp_warning_c", "oil_temp_critical_c"],
+    message: "Oil temp thresholds must remain advisory < warning < critical.",
+  },
+  {
+    direction: "desc",
+    fields: [
+      "battery_voltage_advisory_v",
+      "battery_voltage_warning_v",
+      "battery_voltage_critical_v",
+    ],
+    message: "Battery thresholds must remain advisory > warning > critical.",
+  },
+  {
+    direction: "desc",
+    fields: [
+      "fuel_pressure_advisory_bar",
+      "fuel_pressure_warning_bar",
+      "fuel_pressure_critical_bar",
+    ],
+    message: "Fuel pressure thresholds must remain advisory > warning > critical.",
+  },
+  {
+    direction: "asc",
+    fields: ["lambda_advisory_delta", "lambda_warning_delta", "lambda_critical_delta"],
+    message: "Lambda thresholds must remain advisory < warning < critical.",
+  },
+];
+
+const SANITY_LIMITS: Record<ThresholdFieldName, { min: number; max: number; unit: string }> = {
+  oil_pressure_advisory_bar: { min: 0.1, max: 10, unit: "bar" },
+  oil_pressure_warning_bar: { min: 0.1, max: 10, unit: "bar" },
+  oil_pressure_critical_bar: { min: 0.1, max: 10, unit: "bar" },
+  water_temp_advisory_c: { min: 20, max: 180, unit: "C" },
+  water_temp_warning_c: { min: 20, max: 180, unit: "C" },
+  water_temp_critical_c: { min: 20, max: 180, unit: "C" },
+  oil_temp_advisory_c: { min: 20, max: 220, unit: "C" },
+  oil_temp_warning_c: { min: 20, max: 220, unit: "C" },
+  oil_temp_critical_c: { min: 20, max: 220, unit: "C" },
+  battery_voltage_advisory_v: { min: 0, max: 24, unit: "V" },
+  battery_voltage_warning_v: { min: 0, max: 24, unit: "V" },
+  battery_voltage_critical_v: { min: 0, max: 24, unit: "V" },
+  fuel_pressure_advisory_bar: { min: 0, max: 10, unit: "bar" },
+  fuel_pressure_warning_bar: { min: 0, max: 10, unit: "bar" },
+  fuel_pressure_critical_bar: { min: 0, max: 10, unit: "bar" },
+  lambda_advisory_delta: { min: 0, max: 1, unit: "delta" },
+  lambda_warning_delta: { min: 0, max: 1, unit: "delta" },
+  lambda_critical_delta: { min: 0, max: 1, unit: "delta" },
+  fuel_level_warning_percent: { min: 0, max: 100, unit: "%" },
+};
 
 export interface ThresholdValidationResult {
   thresholds: AlertThresholdSettings | null;
@@ -38,8 +290,12 @@ export interface ThresholdValidationResult {
   summary: string | null;
 }
 
-function formatFuelThresholdInput(value: number): string {
-  return Number.isFinite(value) ? value.toString() : "";
+function trimTrailingZeros(value: string): string {
+  return value.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
+function formatSimpleNumber(value: number, digits = 2): string {
+  return trimTrailingZeros(value.toFixed(digits));
 }
 
 function addFieldError(
@@ -52,263 +308,126 @@ function addFieldError(
   }
 }
 
-function validateRange(
+function formatThresholdFieldValue(
   field: ThresholdFieldName,
-  value: number,
-): string | null {
-  switch (field) {
-    case "oil_pressure_warning_bar":
-    case "oil_pressure_critical_bar":
-      if (value < SANITY_LIMITS.oil_pressure_bar.min || value > SANITY_LIMITS.oil_pressure_bar.max) {
-        return `${THRESHOLD_LABELS[field]} must stay between ${SANITY_LIMITS.oil_pressure_bar.min} and ${SANITY_LIMITS.oil_pressure_bar.max} bar.`;
-      }
-      return null;
-    case "water_temp_warning_c":
-    case "water_temp_critical_c":
-      if (value < SANITY_LIMITS.water_temp_c.min || value > SANITY_LIMITS.water_temp_c.max) {
-        return `${THRESHOLD_LABELS[field]} must stay between ${SANITY_LIMITS.water_temp_c.min} and ${SANITY_LIMITS.water_temp_c.max} C.`;
-      }
-      return null;
-    case "oil_temp_warning_c":
-    case "oil_temp_critical_c":
-      if (value < SANITY_LIMITS.oil_temp_c.min || value > SANITY_LIMITS.oil_temp_c.max) {
-        return `${THRESHOLD_LABELS[field]} must stay between ${SANITY_LIMITS.oil_temp_c.min} and ${SANITY_LIMITS.oil_temp_c.max} C.`;
-      }
-      return null;
-    case "fuel_level_warning_percent":
-      if (value < SANITY_LIMITS.fuel_percent.min || value > SANITY_LIMITS.fuel_percent.max) {
-        return `${THRESHOLD_LABELS[field]} must stay between ${SANITY_LIMITS.fuel_percent.min} and ${SANITY_LIMITS.fuel_percent.max} percent.`;
-      }
-      return null;
+  thresholds: AlertThresholdSettings,
+  units: DisplayPreferences,
+): string {
+  const value = thresholds[field];
+  const unitKind = THRESHOLD_FIELD_DEFINITIONS[field].unitKind;
+
+  switch (unitKind) {
+    case "pressure":
+      return formatPressureThresholdInput(value, units.pressure_unit);
+    case "temperature":
+      return formatTemperatureThresholdInput(value, units.temperature_unit);
+    case "voltage":
+      return formatSimpleNumber(value, 2);
+    case "delta":
+      return formatSimpleNumber(value, 3);
+    case "percent":
+      return formatSimpleNumber(value, 1);
   }
 }
 
-export function buildTemperatureThresholdInputs(
-  thresholds: AlertThresholdSettings,
-  temperatureUnit: AppSettingsUpdate["display"]["temperature_unit"],
-): Pick<
-  ThresholdInputState,
-  "water_temp_warning_c" | "water_temp_critical_c" | "oil_temp_warning_c" | "oil_temp_critical_c"
-> {
-  return {
-    water_temp_warning_c: formatTemperatureThresholdInput(
-      thresholds.water_temp_warning_c,
-      temperatureUnit,
-    ),
-    water_temp_critical_c: formatTemperatureThresholdInput(
-      thresholds.water_temp_critical_c,
-      temperatureUnit,
-    ),
-    oil_temp_warning_c: formatTemperatureThresholdInput(
-      thresholds.oil_temp_warning_c,
-      temperatureUnit,
-    ),
-    oil_temp_critical_c: formatTemperatureThresholdInput(
-      thresholds.oil_temp_critical_c,
-      temperatureUnit,
-    ),
-  };
+function validateRange(field: ThresholdFieldName, value: number): string | null {
+  const limit = SANITY_LIMITS[field];
+  if (value < limit.min || value > limit.max) {
+    return `${THRESHOLD_FIELD_DEFINITIONS[field].label} must stay between ${limit.min} and ${limit.max} ${limit.unit}.`;
+  }
+  return null;
 }
 
-export function buildPressureThresholdInputs(
-  thresholds: AlertThresholdSettings,
-  pressureUnit: AppSettingsUpdate["display"]["pressure_unit"],
-): Pick<ThresholdInputState, "oil_pressure_warning_bar" | "oil_pressure_critical_bar"> {
-  return {
-    oil_pressure_warning_bar: formatPressureThresholdInput(
-      thresholds.oil_pressure_warning_bar,
-      pressureUnit,
-    ),
-    oil_pressure_critical_bar: formatPressureThresholdInput(
-      thresholds.oil_pressure_critical_bar,
-      pressureUnit,
-    ),
-  };
+export function getThresholdUnitLabel(
+  field: ThresholdFieldName,
+  units: DisplayPreferences,
+): string {
+  switch (THRESHOLD_FIELD_DEFINITIONS[field].unitKind) {
+    case "pressure":
+      return units.pressure_unit;
+    case "temperature":
+      return units.temperature_unit === "fahrenheit" ? "deg F" : "deg C";
+    case "voltage":
+      return "V";
+    case "delta":
+      return "delta";
+    case "percent":
+      return "%";
+  }
 }
 
 export function buildThresholdInputState(
   thresholds: AlertThresholdSettings,
-  display: AppSettingsUpdate["display"],
+  units: DisplayPreferences,
 ): ThresholdInputState {
-  return {
-    ...buildPressureThresholdInputs(thresholds, display.pressure_unit),
-    ...buildTemperatureThresholdInputs(thresholds, display.temperature_unit),
-    fuel_level_warning_percent: formatFuelThresholdInput(thresholds.fuel_level_warning_percent),
-  };
+  return Object.keys(THRESHOLD_FIELD_DEFINITIONS).reduce((result, key) => {
+    const field = key as ThresholdFieldName;
+    result[field] = formatThresholdFieldValue(field, thresholds, units);
+    return result;
+  }, {} as ThresholdInputState);
+}
+
+export function parseThresholdFieldValue(
+  field: ThresholdFieldName,
+  value: string,
+  units: DisplayPreferences,
+): number | null {
+  switch (THRESHOLD_FIELD_DEFINITIONS[field].unitKind) {
+    case "pressure":
+      return parsePressureThresholdInput(value, units.pressure_unit);
+    case "temperature":
+      return parseTemperatureThresholdInput(value, units.temperature_unit);
+    case "voltage":
+    case "delta":
+    case "percent":
+      return parseEditableNumber(value);
+  }
 }
 
 export function validateThresholdInputs(
   inputs: ThresholdInputState,
-  display: AppSettingsUpdate["display"],
+  units: DisplayPreferences,
 ): ThresholdValidationResult {
   const fieldErrors: ThresholdFieldErrors = {};
+  const parsedThresholds = {} as AlertThresholdSettings;
 
-  const oilPressureWarning = parsePressureThresholdInput(
-    inputs.oil_pressure_warning_bar,
-    display.pressure_unit,
-  );
-  if (oilPressureWarning === null) {
-    addFieldError(
-      fieldErrors,
-      "oil_pressure_warning_bar",
-      `Enter a numeric value for ${THRESHOLD_LABELS.oil_pressure_warning_bar}.`,
-    );
-  }
+  for (const field of Object.keys(THRESHOLD_FIELD_DEFINITIONS) as ThresholdFieldName[]) {
+    const parsedValue = parseThresholdFieldValue(field, inputs[field], units);
+    if (parsedValue === null) {
+      addFieldError(
+        fieldErrors,
+        field,
+        `Enter a numeric value for ${THRESHOLD_FIELD_DEFINITIONS[field].label}.`,
+      );
+      continue;
+    }
 
-  const oilPressureCritical = parsePressureThresholdInput(
-    inputs.oil_pressure_critical_bar,
-    display.pressure_unit,
-  );
-  if (oilPressureCritical === null) {
-    addFieldError(
-      fieldErrors,
-      "oil_pressure_critical_bar",
-      `Enter a numeric value for ${THRESHOLD_LABELS.oil_pressure_critical_bar}.`,
-    );
-  }
-
-  const waterTempWarning = parseTemperatureThresholdInput(
-    inputs.water_temp_warning_c,
-    display.temperature_unit,
-  );
-  if (waterTempWarning === null) {
-    addFieldError(
-      fieldErrors,
-      "water_temp_warning_c",
-      `Enter a numeric value for ${THRESHOLD_LABELS.water_temp_warning_c}.`,
-    );
-  }
-
-  const waterTempCritical = parseTemperatureThresholdInput(
-    inputs.water_temp_critical_c,
-    display.temperature_unit,
-  );
-  if (waterTempCritical === null) {
-    addFieldError(
-      fieldErrors,
-      "water_temp_critical_c",
-      `Enter a numeric value for ${THRESHOLD_LABELS.water_temp_critical_c}.`,
-    );
-  }
-
-  const oilTempWarning = parseTemperatureThresholdInput(
-    inputs.oil_temp_warning_c,
-    display.temperature_unit,
-  );
-  if (oilTempWarning === null) {
-    addFieldError(
-      fieldErrors,
-      "oil_temp_warning_c",
-      `Enter a numeric value for ${THRESHOLD_LABELS.oil_temp_warning_c}.`,
-    );
-  }
-
-  const oilTempCritical = parseTemperatureThresholdInput(
-    inputs.oil_temp_critical_c,
-    display.temperature_unit,
-  );
-  if (oilTempCritical === null) {
-    addFieldError(
-      fieldErrors,
-      "oil_temp_critical_c",
-      `Enter a numeric value for ${THRESHOLD_LABELS.oil_temp_critical_c}.`,
-    );
-  }
-
-  const fuelWarning = parseEditableNumber(inputs.fuel_level_warning_percent);
-  if (fuelWarning === null) {
-    addFieldError(
-      fieldErrors,
-      "fuel_level_warning_percent",
-      `Enter a numeric value for ${THRESHOLD_LABELS.fuel_level_warning_percent}.`,
-    );
-  }
-
-  const parsedThresholds: Partial<AlertThresholdSettings> = {};
-
-  if (oilPressureWarning !== null) {
-    parsedThresholds.oil_pressure_warning_bar = oilPressureWarning;
-    const rangeError = validateRange("oil_pressure_warning_bar", oilPressureWarning);
+    parsedThresholds[field] = parsedValue;
+    const rangeError = validateRange(field, parsedValue);
     if (rangeError) {
-      addFieldError(fieldErrors, "oil_pressure_warning_bar", rangeError);
+      addFieldError(fieldErrors, field, rangeError);
     }
   }
 
-  if (oilPressureCritical !== null) {
-    parsedThresholds.oil_pressure_critical_bar = oilPressureCritical;
-    const rangeError = validateRange("oil_pressure_critical_bar", oilPressureCritical);
-    if (rangeError) {
-      addFieldError(fieldErrors, "oil_pressure_critical_bar", rangeError);
+  for (const group of THRESHOLD_RULE_GROUPS) {
+    const values = group.fields.map((field) => parsedThresholds[field]);
+    if (values.some((value) => value === undefined)) {
+      continue;
+    }
+
+    const isValid =
+      group.direction === "asc"
+        ? values[0] < values[1] && values[1] < values[2]
+        : values[0] > values[1] && values[1] > values[2];
+
+    if (!isValid) {
+      for (const field of group.fields) {
+        addFieldError(fieldErrors, field, group.message);
+      }
     }
   }
 
-  if (waterTempWarning !== null) {
-    parsedThresholds.water_temp_warning_c = waterTempWarning;
-    const rangeError = validateRange("water_temp_warning_c", waterTempWarning);
-    if (rangeError) {
-      addFieldError(fieldErrors, "water_temp_warning_c", rangeError);
-    }
-  }
-
-  if (waterTempCritical !== null) {
-    parsedThresholds.water_temp_critical_c = waterTempCritical;
-    const rangeError = validateRange("water_temp_critical_c", waterTempCritical);
-    if (rangeError) {
-      addFieldError(fieldErrors, "water_temp_critical_c", rangeError);
-    }
-  }
-
-  if (oilTempWarning !== null) {
-    parsedThresholds.oil_temp_warning_c = oilTempWarning;
-    const rangeError = validateRange("oil_temp_warning_c", oilTempWarning);
-    if (rangeError) {
-      addFieldError(fieldErrors, "oil_temp_warning_c", rangeError);
-    }
-  }
-
-  if (oilTempCritical !== null) {
-    parsedThresholds.oil_temp_critical_c = oilTempCritical;
-    const rangeError = validateRange("oil_temp_critical_c", oilTempCritical);
-    if (rangeError) {
-      addFieldError(fieldErrors, "oil_temp_critical_c", rangeError);
-    }
-  }
-
-  if (fuelWarning !== null) {
-    parsedThresholds.fuel_level_warning_percent = fuelWarning;
-    const rangeError = validateRange("fuel_level_warning_percent", fuelWarning);
-    if (rangeError) {
-      addFieldError(fieldErrors, "fuel_level_warning_percent", rangeError);
-    }
-  }
-
-  if (oilPressureWarning !== null && oilPressureCritical !== null) {
-    if (oilPressureCritical >= oilPressureWarning) {
-      const message = "Critical oil pressure must stay lower than the warning threshold.";
-      addFieldError(fieldErrors, "oil_pressure_warning_bar", message);
-      addFieldError(fieldErrors, "oil_pressure_critical_bar", message);
-    }
-  }
-
-  if (waterTempWarning !== null && waterTempCritical !== null) {
-    if (waterTempCritical <= waterTempWarning) {
-      const message = "Critical water temp must stay higher than the warning threshold.";
-      addFieldError(fieldErrors, "water_temp_warning_c", message);
-      addFieldError(fieldErrors, "water_temp_critical_c", message);
-    }
-  }
-
-  if (oilTempWarning !== null && oilTempCritical !== null) {
-    if (oilTempCritical <= oilTempWarning) {
-      const message = "Critical oil temp must stay higher than the warning threshold.";
-      addFieldError(fieldErrors, "oil_temp_warning_c", message);
-      addFieldError(fieldErrors, "oil_temp_critical_c", message);
-    }
-  }
-
-  const summary =
-    Object.values(fieldErrors)[0] ?? null;
-
+  const summary = Object.values(fieldErrors)[0] ?? null;
   if (summary !== null) {
     return {
       thresholds: null,
@@ -318,43 +437,17 @@ export function validateThresholdInputs(
   }
 
   return {
-    thresholds: parsedThresholds as AlertThresholdSettings,
+    thresholds: parsedThresholds,
     fieldErrors,
     summary: null,
   };
 }
 
-export function parseThresholdFieldValue(
-  field: ThresholdFieldName,
-  value: string,
-  display: AppSettingsUpdate["display"],
-): number | null {
-  switch (field) {
-    case "oil_pressure_warning_bar":
-    case "oil_pressure_critical_bar":
-      return parsePressureThresholdInput(value, display.pressure_unit);
-    case "water_temp_warning_c":
-    case "water_temp_critical_c":
-    case "oil_temp_warning_c":
-    case "oil_temp_critical_c":
-      return parseTemperatureThresholdInput(value, display.temperature_unit);
-    case "fuel_level_warning_percent":
-      return parseEditableNumber(value);
-  }
-}
-
-export function hasUnsavedSettingsChanges(
+export function hasUnsavedThresholdChanges(
   inputs: ThresholdInputState,
-  display: AppSettingsUpdate["display"],
+  units: DisplayPreferences,
   settings: AppSettingsSnapshot,
 ): boolean {
-  const savedDisplay = settings.display;
-  if (JSON.stringify(display) !== JSON.stringify(savedDisplay)) {
-    return true;
-  }
-
-  const savedInputs = buildThresholdInputState(settings.thresholds, display);
-  return (Object.keys(savedInputs) as ThresholdFieldName[]).some(
-    (field) => inputs[field] !== savedInputs[field],
-  );
+  const savedInputs = buildThresholdInputState(settings.shared.thresholds, units);
+  return (Object.keys(savedInputs) as ThresholdFieldName[]).some((field) => inputs[field] !== savedInputs[field]);
 }
