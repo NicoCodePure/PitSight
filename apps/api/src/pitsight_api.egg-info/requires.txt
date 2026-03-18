@@ -1,0 +1,16 @@
+aiosqlite<1.0,>=0.20
+fastapi<1.0,>=0.115
+pydantic<3.0,>=2.8
+pydantic-settings<3.0,>=2.4
+uvicorn[standard]<1.0,>=0.30
+
+[dev]
+httpx<1.0,>=0.28
+pytest<9.0,>=8.3
+ruff<1.0,>=0.6
+
+[dictator]
+pyserial<4.0,>=3.5
+
+[obd2]
+obd<1.0,>=0.7.2

@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pitsight.local/contracts/telemetry.schema.json",
+  "title": "PitSightTelemetrySnapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "session_id",
+    "sequence",
+    "timestamp",
+    "source",
+    "lap",
+    "session",
+    "engine",
+    "fuel",
+    "gps",
+    "alerts",
+    "health_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "health_state": {
+      "type": "string",
+      "enum": ["nominal", "warning", "critical"]
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "lap": {
+      "$ref": "#/$defs/lap"
+    },
+    "session": {
+      "$ref": "#/$defs/session"
+    },
+    "engine": {
+      "$ref": "#/$defs/engine"
+    },
+    "fuel": {
+      "$ref": "#/$defs/fuel"
+    },
+    "gps": {
+      "$ref": "#/$defs/gps"
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/alert"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "provider",
+        "transport",
+        "protocol",
+        "connection_state",
+        "connected",
+        "raw_capture_enabled"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["simulator", "obd2", "dictator"]
+        },
+        "transport": {
+          "type": "string"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "connection_state": {
+          "type": "string",
+          "enum": ["connecting", "connected", "degraded", "disconnected", "fault"]
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "raw_capture_enabled": {
+          "type": "boolean"
+        },
+        "details": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "lap": {
+      "type": "object",
+      "properties": {
+        "lap_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "current_lap_time_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "previous_lap_time_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "best_lap_time_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "optimal_lap_estimate_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "session_time_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "drive_time_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "stint_time_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "engine": {
+      "type": "object",
+      "properties": {
+        "speed_kph": {
+          "type": ["number", "null"]
+        },
+        "rpm": {
+          "type": ["number", "null"]
+        },
+        "water_temp_c": {
+          "type": ["number", "null"]
+        },
+        "oil_temp_c": {
+          "type": ["number", "null"]
+        },
+        "oil_pressure_bar": {
+          "type": ["number", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "fuel": {
+      "type": "object",
+      "properties": {
+        "level_percent": {
+          "type": ["number", "null"]
+        },
+        "range_km": {
+          "type": ["number", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "gps": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": ["number", "null"]
+        },
+        "longitude": {
+          "type": ["number", "null"]
+        },
+        "speed_kph": {
+          "type": ["number", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "alert": {
+      "type": "object",
+      "required": ["code", "severity", "message", "active"],
+      "properties": {
+        "timestamp": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "critical"]
+        },
+        "message": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "value": {
+          "type": ["number", "null"]
+        },
+        "threshold": {
+          "type": ["number", "null"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

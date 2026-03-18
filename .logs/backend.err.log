@@ -1,0 +1,49 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\nicon\\PitSight']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [6372] using WatchFiles
+INFO:     Started server process [31064]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59502 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:60473 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:61727 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:55188 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     127.0.0.1:62793 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+WARNING:  WatchFiles detected changes in 'apps\api\src\pitsight_api\core\models\__init__.py', 'apps\api\src\pitsight_api\core\models\app_settings.py'. Reloading...
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [31064]
+WARNING:  WatchFiles detected changes in 'apps\api\src\pitsight_api\config.py', 'apps\api\src\pitsight_api\services\__init__.py', 'apps\api\src\pitsight_api\main.py', 'apps\api\src\pitsight_api\storage\repository.py', 'apps\api\src\pitsight_api\api\routes\settings.py', 'apps\api\src\pitsight_api\api\deps.py', 'apps\api\src\pitsight_api\services\settings_service.py', 'apps\api\src\pitsight_api\services\warning_engine.py'. Reloading...
+INFO:     Started server process [27372]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [27372]
+INFO:     Started server process [24544]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59569 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:64030 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:62209 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:65210 - "WebSocket /ws/telemetry" [accepted]
+INFO:     connection open
+INFO:     connection closed
