@@ -14,10 +14,12 @@ src/pitsight_api/api/deps.py
 src/pitsight_api/api/routes/__init__.py
 src/pitsight_api/api/routes/health.py
 src/pitsight_api/api/routes/session.py
+src/pitsight_api/api/routes/settings.py
 src/pitsight_api/api/routes/stream.py
 src/pitsight_api/api/routes/telemetry.py
 src/pitsight_api/core/__init__.py
 src/pitsight_api/core/models/__init__.py
+src/pitsight_api/core/models/app_settings.py
 src/pitsight_api/core/models/session.py
 src/pitsight_api/core/models/telemetry.py
 src/pitsight_api/protocol/__init__.py
@@ -32,6 +34,7 @@ src/pitsight_api/providers/obd2.py
 src/pitsight_api/providers/simulator.py
 src/pitsight_api/services/__init__.py
 src/pitsight_api/services/session_service.py
+src/pitsight_api/services/settings_service.py
 src/pitsight_api/services/telemetry_service.py
 src/pitsight_api/services/warning_engine.py
 src/pitsight_api/storage/__init__.py
@@ -39,3 +42,4 @@ src/pitsight_api/storage/repository.py
 src/pitsight_api/transport/__init__.py
 src/pitsight_api/transport/base.py
 src/pitsight_api/transport/serial.py
+tests/test_settings_service.py

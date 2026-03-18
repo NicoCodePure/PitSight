@@ -5,6 +5,16 @@ import type {
   TemperatureUnit,
 } from "../types/appSettings";
 import type { AlertEvent } from "../types/telemetry";
+import {
+  convertPressureFromCanonicalBar,
+  convertSpeedFromCanonicalKph,
+  convertTemperatureFromCanonicalC,
+  pressureUnitLabel,
+  speedUnitLabel,
+  temperatureUnitLabel,
+} from "./units";
+
+export { pressureUnitLabel, speedUnitLabel, temperatureUnitLabel } from "./units";
 
 export function formatMetric(
   value: number | null | undefined,
@@ -41,49 +51,25 @@ export function titleCase(value: string): string {
   return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function convertSpeed(value: number, unit: SpeedUnit): number {
-  return unit === "mph" ? value * 0.621371 : value;
-}
-
-function convertTemperature(value: number, unit: TemperatureUnit): number {
-  return unit === "fahrenheit" ? value * 1.8 + 32 : value;
-}
-
-function convertPressure(value: number, unit: PressureUnit): number {
-  return unit === "psi" ? value * 14.5038 : value;
-}
-
-export function speedUnitLabel(unit: SpeedUnit): string {
-  return unit;
-}
-
-export function temperatureUnitLabel(unit: TemperatureUnit): string {
-  return unit === "fahrenheit" ? "F" : "C";
-}
-
-export function pressureUnitLabel(unit: PressureUnit): string {
-  return unit;
-}
-
 export function formatSpeed(value: number | null | undefined, unit: SpeedUnit): string {
   if (value === null || value === undefined) {
     return "--";
   }
-  return formatMetric(convertSpeed(value, unit), unit === "mph" ? 0 : 0);
+  return formatMetric(convertSpeedFromCanonicalKph(value, unit), 0);
 }
 
 export function formatTemperature(value: number | null | undefined, unit: TemperatureUnit): string {
   if (value === null || value === undefined) {
     return "--";
   }
-  return formatMetric(convertTemperature(value, unit), 1);
+  return formatMetric(convertTemperatureFromCanonicalC(value, unit), 1);
 }
 
 export function formatPressure(value: number | null | undefined, unit: PressureUnit): string {
   if (value === null || value === undefined) {
     return "--";
   }
-  return formatMetric(convertPressure(value, unit), unit === "psi" ? 1 : 2);
+  return formatMetric(convertPressureFromCanonicalBar(value, unit), unit === "psi" ? 1 : 2);
 }
 
 export function formatAlertValue(

@@ -13,6 +13,13 @@
   --ok: #5dd17f;
   --warning: #ffb000;
   --critical: #ff4d3d;
+  --teal: #45d7d6;
+  --teal-soft: #8fe7e6;
+  --grey-soft: #6f7d84;
+  --grey-strong: #cad4d8;
+  --lemons-bg: #060809;
+  --lemons-panel: #0b1013;
+  --lemons-panel-2: #10161a;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
   font-family: "Bahnschrift", "Arial Narrow", "Segoe UI", sans-serif;
 }
@@ -82,7 +89,7 @@ a {
   display: grid;
   gap: 18px;
   align-content: start;
-  padding-top: 84px;
+  padding-top: 28px;
 }
 
 .screen--pit {
@@ -366,19 +373,62 @@ a {
   gap: 20px;
 }
 
-.settings-group {
+.settings-summary {
+  display: grid;
+  gap: 6px;
+  max-width: 760px;
+  color: var(--muted);
+}
+
+.settings-summary p {
+  margin: 0;
+}
+
+.settings-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.settings-section--wide {
+  grid-column: 1 / -1;
+}
+
+.settings-section__header {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-section__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-section__description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.settings-group__title {
-  grid-column: 1 / -1;
-  margin: 0 0 4px;
-  color: var(--text);
-  font-size: 1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.settings-grid--single {
+  grid-template-columns: 1fr;
 }
 
 .settings-field {
@@ -386,10 +436,34 @@ a {
   gap: 8px;
 }
 
-.settings-field span {
+.settings-field__label {
   color: var(--muted);
   font-size: 0.86rem;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-field__helper {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.settings-field__input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-field__input-row input {
+  flex: 1 1 auto;
+}
+
+.settings-field__unit {
+  min-width: 44px;
+  color: var(--accent-soft);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -404,15 +478,68 @@ a {
   font: inherit;
 }
 
+.settings-field input.is-invalid,
+.settings-field select.is-invalid {
+  border-color: rgba(255, 77, 61, 0.45);
+  background: rgba(255, 77, 61, 0.08);
+}
+
 .settings-field input:focus,
 .settings-field select:focus {
   outline: 2px solid rgba(255, 209, 102, 0.35);
   outline-offset: 2px;
 }
 
+.settings-field__error {
+  color: var(--critical);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.settings-note {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 209, 102, 0.18);
+  background: rgba(255, 209, 102, 0.06);
+  color: var(--muted);
+}
+
+.settings-meta {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.settings-meta__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-meta__row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.settings-meta dt {
+  color: var(--muted);
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-meta dd {
+  margin: 0;
+  color: var(--text);
+}
+
 .settings-actions {
   display: flex;
   justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .settings-button {
@@ -426,6 +553,12 @@ a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.settings-button--secondary {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
 }
 
 .settings-button:disabled {
@@ -446,9 +579,679 @@ a {
   color: var(--ok);
 }
 
+.settings-status--info {
+  border-color: rgba(255, 209, 102, 0.24);
+  color: var(--accent-soft);
+}
+
 .settings-status--warning {
   border-color: rgba(255, 176, 0, 0.32);
   color: var(--warning);
+}
+
+.screen--driver-theme {
+  gap: 14px;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%),
+    linear-gradient(135deg, rgba(69, 215, 214, 0.05), transparent 18%),
+    var(--lemons-bg);
+}
+
+.screen__title--lemons {
+  font-family: "Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: clamp(1.8rem, 2.8vw, 2.6rem);
+  letter-spacing: 0.08em;
+}
+
+.driver-top-strip,
+.driver-bottom-strip,
+.driver-focus-cluster__shell,
+.driver-timing-card,
+.telemetry-state-card {
+  box-shadow: var(--shadow);
+}
+
+.driver-top-strip {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    rgba(5, 9, 11, 0.94);
+}
+
+.driver-top-strip__status {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.driver-top-strip__lights {
+  display: grid;
+  gap: 8px;
+}
+
+.driver-shift-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.driver-shift-header__label {
+  color: var(--grey-strong);
+}
+
+.driver-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.driver-status-badge {
+  display: grid;
+  gap: 4px;
+  min-width: 112px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.driver-status-badge__label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.driver-status-badge__value {
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.driver-status-badge--normal {
+  border-color: rgba(69, 215, 214, 0.22);
+  color: var(--teal-soft);
+}
+
+.driver-status-badge--advisory,
+.driver-status-badge--warning {
+  border-color: rgba(255, 176, 0, 0.28);
+  color: #ffd480;
+}
+
+.driver-status-badge--critical {
+  border-color: rgba(255, 77, 61, 0.34);
+  color: #ff9588;
+}
+
+.driver-status-badge--unavailable {
+  border-color: rgba(202, 212, 216, 0.18);
+  color: var(--grey-strong);
+}
+
+.shift-lights {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.shift-lights__lamp {
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  transition: transform 120ms ease-out, box-shadow 140ms ease-out, background-color 140ms ease-out;
+}
+
+.shift-lights__lamp--calm.is-active {
+  background: var(--teal);
+  box-shadow: 0 0 14px rgba(69, 215, 214, 0.45);
+}
+
+.shift-lights__lamp--warning.is-active {
+  background: var(--warning);
+  box-shadow: 0 0 14px rgba(255, 176, 0, 0.5);
+}
+
+.shift-lights__lamp--critical.is-active {
+  background: var(--critical);
+  box-shadow: 0 0 16px rgba(255, 77, 61, 0.55);
+}
+
+.shift-lights--critical .shift-lights__lamp--critical.is-active {
+  animation: critical-pulse 900ms ease-in-out infinite;
+}
+
+.driver-alert-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.95fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.driver-alert-strip--single {
+  grid-template-columns: 1fr;
+}
+
+.driver-alert-strip__primary,
+.driver-alert-chip {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--lemons-panel);
+}
+
+.driver-alert-strip__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.driver-alert-strip__severity,
+.driver-alert-chip__severity {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.driver-alert-strip__source {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.driver-alert-strip__title,
+.driver-alert-chip__title {
+  font-size: clamp(1.15rem, 1.8vw, 1.5rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.driver-alert-strip__detail,
+.driver-alert-chip__detail {
+  color: var(--grey-strong);
+  font-size: 0.94rem;
+}
+
+.driver-alert-strip__secondary {
+  display: grid;
+  gap: 10px;
+}
+
+.driver-alert-strip--clear .driver-alert-strip__primary {
+  border-color: rgba(69, 215, 214, 0.18);
+  background: linear-gradient(90deg, rgba(69, 215, 214, 0.08), rgba(11, 16, 19, 0.92));
+}
+
+.driver-alert-strip--advisory .driver-alert-strip__primary,
+.driver-alert-chip--advisory {
+  border-color: rgba(255, 176, 0, 0.22);
+  background: linear-gradient(90deg, rgba(255, 176, 0, 0.08), rgba(11, 16, 19, 0.94));
+}
+
+.driver-alert-strip--warning .driver-alert-strip__primary,
+.driver-alert-chip--warning {
+  border-color: rgba(255, 176, 0, 0.34);
+  background: linear-gradient(90deg, rgba(255, 176, 0, 0.13), rgba(11, 16, 19, 0.96));
+}
+
+.driver-alert-strip--critical .driver-alert-strip__primary,
+.driver-alert-chip--critical {
+  border-color: rgba(255, 77, 61, 0.38);
+  background: linear-gradient(90deg, rgba(255, 77, 61, 0.16), rgba(20, 12, 11, 0.96));
+}
+
+.driver-alert-chip--unavailable {
+  border-color: rgba(202, 212, 216, 0.18);
+  background: linear-gradient(90deg, rgba(202, 212, 216, 0.08), rgba(11, 16, 19, 0.96));
+}
+
+.driver-alert-strip--critical .driver-alert-strip__primary {
+  animation: critical-pulse 1200ms ease-in-out infinite;
+}
+
+.driver-layout {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+
+.driver-layout--lemons {
+  grid-template-columns: minmax(190px, 0.92fr) minmax(0, 1.55fr) minmax(220px, 1.08fr);
+}
+
+.driver-layout--normal {
+  grid-template-columns: minmax(190px, 0.92fr) minmax(0, 1.7fr) minmax(220px, 1.08fr);
+}
+
+.driver-main-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.driver-column {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.driver-column--support {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.driver-section {
+  display: grid;
+  gap: 10px;
+}
+
+.driver-section__title {
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.driver-column--support .driver-section__title {
+  grid-column: 1 / -1;
+}
+
+.telemetry-state-card {
+  display: grid;
+  gap: 7px;
+  min-height: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--lemons-panel-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.telemetry-state-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.telemetry-state-card__label,
+.telemetry-state-card__state {
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.telemetry-state-card__label {
+  color: var(--muted);
+}
+
+.telemetry-state-card__state {
+  color: var(--grey-strong);
+}
+
+.telemetry-state-card__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.telemetry-state-card__value {
+  font-size: clamp(1.9rem, 2.9vw, 3rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+}
+
+.telemetry-state-card__unit {
+  color: var(--grey-strong);
+  font-size: 0.88rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.telemetry-state-card__detail {
+  color: var(--grey-strong);
+  font-size: 0.84rem;
+  line-height: 1.3;
+}
+
+.telemetry-state-card--normal {
+  border-color: rgba(69, 215, 214, 0.18);
+}
+
+.telemetry-state-card--normal .telemetry-state-card__value {
+  color: var(--text);
+}
+
+.telemetry-state-card--advisory,
+.telemetry-state-card--warning {
+  border-color: rgba(255, 176, 0, 0.28);
+}
+
+.telemetry-state-card--advisory .telemetry-state-card__state,
+.telemetry-state-card--warning .telemetry-state-card__state {
+  color: #ffd480;
+}
+
+.telemetry-state-card--critical {
+  border-color: rgba(255, 77, 61, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 77, 61, 0.1), rgba(255, 255, 255, 0)),
+    var(--lemons-panel-2);
+}
+
+.telemetry-state-card--critical .telemetry-state-card__state,
+.telemetry-state-card--critical .telemetry-state-card__value {
+  color: #ffb1a8;
+}
+
+.telemetry-state-card--unavailable {
+  border-color: rgba(202, 212, 216, 0.16);
+}
+
+.telemetry-state-card--unavailable .telemetry-state-card__value,
+.telemetry-state-card--unavailable .telemetry-state-card__state {
+  color: var(--grey-soft);
+}
+
+.driver-focus-cluster__shell {
+  display: grid;
+  grid-template-columns: minmax(142px, 0.8fr) minmax(0, 1.55fr) minmax(170px, 0.92fr);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    rgba(8, 12, 14, 0.98);
+  overflow: hidden;
+}
+
+.driver-focus-segment,
+.driver-focus-main {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+  min-height: 210px;
+  padding: 18px 20px;
+}
+
+.driver-focus-main {
+  padding-inline: 26px;
+}
+
+.driver-focus-segment + .driver-focus-main,
+.driver-focus-main + .driver-focus-segment {
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.driver-focus-segment__label,
+.driver-focus-main__label {
+  color: var(--muted);
+  font-size: 0.84rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.driver-focus-main__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.driver-focus-main__value {
+  font-family: "Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: clamp(4.8rem, 10.5vw, 8.6rem);
+  line-height: 0.86;
+  letter-spacing: 0.02em;
+}
+
+.driver-focus-main__unit {
+  color: var(--grey-strong);
+  font-size: 1rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.driver-focus-segment__value {
+  font-family: "Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: clamp(3rem, 6vw, 5.2rem);
+  line-height: 0.9;
+}
+
+.driver-focus-segment__value--rpm {
+  font-size: clamp(2.6rem, 4.5vw, 4.3rem);
+}
+
+.driver-focus-segment__detail,
+.driver-focus-main__detail {
+  color: var(--grey-strong);
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.driver-focus-main--normal,
+.driver-focus-segment--normal {
+  color: var(--text);
+}
+
+.driver-focus-main--advisory,
+.driver-focus-segment--advisory,
+.driver-focus-main--warning,
+.driver-focus-segment--warning {
+  background: linear-gradient(180deg, rgba(255, 176, 0, 0.08), rgba(255, 255, 255, 0));
+}
+
+.driver-focus-main--advisory .driver-focus-main__value,
+.driver-focus-segment--advisory .driver-focus-segment__value,
+.driver-focus-main--warning .driver-focus-main__value,
+.driver-focus-segment--warning .driver-focus-segment__value {
+  color: #ffe3a8;
+}
+
+.driver-focus-main--critical,
+.driver-focus-segment--critical {
+  background: linear-gradient(180deg, rgba(255, 77, 61, 0.1), rgba(255, 255, 255, 0));
+}
+
+.driver-focus-main--critical .driver-focus-main__value,
+.driver-focus-segment--critical .driver-focus-segment__value {
+  color: #ffb1a8;
+}
+
+.driver-focus-main--unavailable .driver-focus-main__value,
+.driver-focus-segment--unavailable .driver-focus-segment__value,
+.driver-focus-main--unavailable .driver-focus-main__detail,
+.driver-focus-segment--unavailable .driver-focus-segment__detail {
+  color: var(--grey-soft);
+}
+
+.driver-timing-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.driver-timing-card {
+  display: grid;
+  gap: 10px;
+  min-height: 118px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    rgba(10, 15, 18, 0.96);
+}
+
+.driver-timing-card--primary {
+  grid-column: span 3;
+  min-height: 132px;
+}
+
+.driver-timing-card--secondary {
+  grid-column: span 2;
+}
+
+.driver-timing-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.driver-timing-card__label,
+.driver-timing-card__state {
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.driver-timing-card__label {
+  color: var(--muted);
+}
+
+.driver-timing-card__state {
+  color: var(--grey-strong);
+}
+
+.driver-timing-card__value {
+  font-family: "Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: clamp(2.6rem, 4.3vw, 4.7rem);
+  line-height: 0.9;
+}
+
+.driver-timing-card--secondary .driver-timing-card__value {
+  font-size: clamp(2rem, 3vw, 3.2rem);
+}
+
+.driver-timing-card__detail {
+  color: var(--grey-strong);
+  font-size: 0.84rem;
+}
+
+.driver-timing-card--normal {
+  border-color: rgba(69, 215, 214, 0.18);
+}
+
+.driver-timing-card--advisory,
+.driver-timing-card--warning {
+  border-color: rgba(255, 176, 0, 0.28);
+}
+
+.driver-timing-card--advisory .driver-timing-card__state,
+.driver-timing-card--warning .driver-timing-card__state,
+.driver-timing-card--advisory .driver-timing-card__value,
+.driver-timing-card--warning .driver-timing-card__value {
+  color: #ffe3a8;
+}
+
+.driver-timing-card--critical {
+  border-color: rgba(255, 77, 61, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 77, 61, 0.1), rgba(255, 255, 255, 0)),
+    rgba(10, 15, 18, 0.96);
+}
+
+.driver-timing-card--critical .driver-timing-card__state,
+.driver-timing-card--critical .driver-timing-card__value {
+  color: #ffb1a8;
+}
+
+.driver-timing-card--unavailable {
+  border-color: rgba(202, 212, 216, 0.16);
+}
+
+.driver-timing-card--unavailable .driver-timing-card__state,
+.driver-timing-card--unavailable .driver-timing-card__value {
+  color: var(--grey-soft);
+}
+
+.driver-bottom-strip {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(7, 11, 13, 0.94);
+}
+
+.driver-bottom-strip__summary {
+  display: grid;
+  gap: 4px;
+}
+
+.driver-bottom-strip__label,
+.driver-footer-item__label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.driver-bottom-strip__value {
+  font-size: 0.98rem;
+  color: var(--grey-strong);
+}
+
+.driver-bottom-strip__items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.driver-footer-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.driver-footer-item__value {
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.driver-footer-item--normal {
+  border-color: rgba(69, 215, 214, 0.18);
+  color: var(--teal-soft);
+}
+
+.driver-footer-item--advisory,
+.driver-footer-item--warning {
+  border-color: rgba(255, 176, 0, 0.28);
+  color: #ffd480;
+}
+
+.driver-footer-item--critical {
+  border-color: rgba(255, 77, 61, 0.34);
+  color: #ffaaa0;
+}
+
+.driver-footer-item--unavailable {
+  border-color: rgba(202, 212, 216, 0.16);
+  color: var(--grey-strong);
 }
 
 @keyframes fade-up {
@@ -462,6 +1265,18 @@ a {
   }
 }
 
+@keyframes critical-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(255, 77, 61, 0);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(255, 77, 61, 0.24);
+    transform: scale(1.005);
+  }
+}
+
 @media (max-width: 1100px) {
   .metric-grid--driver,
   .metric-grid--lemons {
@@ -472,12 +1287,38 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .settings-group {
+  .settings-sections,
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 
   .pit-layout {
     grid-template-columns: 1fr;
+  }
+
+  .driver-layout--lemons {
+    grid-template-columns: minmax(150px, 0.86fr) minmax(0, 1.32fr) minmax(180px, 0.98fr);
+  }
+
+  .driver-layout--normal {
+    grid-template-columns: minmax(150px, 0.86fr) minmax(0, 1.46fr) minmax(180px, 0.98fr);
+  }
+
+  .driver-timing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .driver-timing-card--primary,
+  .driver-timing-card--secondary {
+    grid-column: span 1;
+  }
+
+  .driver-column--support {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-bottom-strip__items {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -493,8 +1334,12 @@ a {
     justify-content: space-between;
   }
 
-  .screen--driver,
-  .screen--pit {
+  .screen--driver {
+    padding-top: 20px;
+  }
+
+  .screen--pit,
+  .screen--settings {
     padding-top: 92px;
   }
 
@@ -512,5 +1357,41 @@ a {
   .screen__header--pit {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .driver-alert-strip,
+  .driver-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-top-strip__status {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .driver-status-badges,
+  .driver-bottom-strip__items,
+  .driver-focus-cluster__shell,
+  .driver-timing-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .driver-column--support {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-alert-strip__secondary {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-shift-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-meta__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

@@ -29,12 +29,12 @@ class DriverMode(str, Enum):
 class AlertThresholdSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    oil_pressure_warning_bar: float = Field(gt=0)
-    oil_pressure_critical_bar: float = Field(gt=0)
-    water_temp_warning_c: float
-    water_temp_critical_c: float
-    oil_temp_warning_c: float
-    oil_temp_critical_c: float
+    oil_pressure_warning_bar: float = Field(gt=0, le=10)
+    oil_pressure_critical_bar: float = Field(gt=0, le=10)
+    water_temp_warning_c: float = Field(ge=20, le=180)
+    water_temp_critical_c: float = Field(ge=20, le=180)
+    oil_temp_warning_c: float = Field(ge=20, le=220)
+    oil_temp_critical_c: float = Field(ge=20, le=220)
     fuel_level_warning_percent: float = Field(ge=0, le=100)
 
     @model_validator(mode="after")
@@ -66,4 +66,3 @@ class AppSettingsUpdate(BaseModel):
 
 class AppSettingsSnapshot(AppSettingsUpdate):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-

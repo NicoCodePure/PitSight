@@ -18,6 +18,13 @@ async def get_settings(
     return service.current()
 
 
+@router.get("/settings/defaults", response_model=AppSettingsUpdate)
+async def get_default_settings(
+    service: Annotated[SettingsService, Depends(get_settings_service)],
+) -> AppSettingsUpdate:
+    return service.default_update()
+
+
 @router.put("/settings", response_model=AppSettingsSnapshot)
 async def update_settings(
     payload: AppSettingsUpdate,

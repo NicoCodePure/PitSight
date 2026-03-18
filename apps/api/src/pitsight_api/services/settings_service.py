@@ -24,7 +24,18 @@ class SettingsService:
             self._current = stored
             return stored
 
-        default_settings = AppSettingsSnapshot(
+        default_settings = AppSettingsSnapshot(**self.default_update().model_dump())
+        await self.repository.store_app_settings(default_settings)
+        self._current = default_settings
+        return default_settings
+
+    def current(self) -> AppSettingsSnapshot:
+        if self._current is None:
+            raise RuntimeError("App settings have not been loaded.")
+        return self._current
+
+    def default_update(self) -> AppSettingsUpdate:
+        return AppSettingsUpdate(
             thresholds=AlertThresholdSettings(
                 oil_pressure_warning_bar=self.defaults.oil_pressure_warning_bar,
                 oil_pressure_critical_bar=self.defaults.oil_pressure_critical_bar,
@@ -41,14 +52,6 @@ class SettingsService:
                 default_driver_mode=self.defaults.default_driver_mode,
             ),
         )
-        await self.repository.store_app_settings(default_settings)
-        self._current = default_settings
-        return default_settings
-
-    def current(self) -> AppSettingsSnapshot:
-        if self._current is None:
-            raise RuntimeError("App settings have not been loaded.")
-        return self._current
 
     async def update(self, update: AppSettingsUpdate) -> AppSettingsSnapshot:
         next_snapshot = AppSettingsSnapshot(
@@ -59,4 +62,3 @@ class SettingsService:
         await self.repository.store_app_settings(next_snapshot)
         self._current = next_snapshot
         return next_snapshot
-

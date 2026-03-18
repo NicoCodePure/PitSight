@@ -44,6 +44,8 @@ uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
 - `GET /api/v1/telemetry/latest`
 - `GET /api/v1/alerts/recent`
 - `GET /api/v1/session/current`
+- `GET /api/v1/settings`
+- `PUT /api/v1/settings`
 - `WS /ws/telemetry`
 
 ## Stubbed providers

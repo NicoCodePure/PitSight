@@ -29,7 +29,7 @@ export interface AppSettingsSnapshot extends AppSettingsUpdate {
   updated_at: string;
 }
 
-export const DEFAULT_APP_SETTINGS: AppSettingsSnapshot = {
+export const DEFAULT_APP_SETTINGS_UPDATE: AppSettingsUpdate = {
   thresholds: {
     oil_pressure_warning_bar: 1.5,
     oil_pressure_critical_bar: 1.0,
@@ -45,5 +45,9 @@ export const DEFAULT_APP_SETTINGS: AppSettingsSnapshot = {
     pressure_unit: "bar",
     default_driver_mode: "normal",
   },
+};
+
+export const DEFAULT_APP_SETTINGS: AppSettingsSnapshot = {
+  ...DEFAULT_APP_SETTINGS_UPDATE,
   updated_at: new Date(0).toISOString(),
 };

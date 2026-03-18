@@ -1,18 +1,11 @@
-import type { DisplayPreferences } from "../types/appSettings";
-import { MetricCard } from "../components/MetricCard";
-import { StatusStrip } from "../components/StatusStrip";
-import { WarningBanner } from "../components/WarningBanner";
+import type { AlertThresholdSettings, DisplayPreferences } from "../types/appSettings";
 import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
-import {
-  formatDuration,
-  formatMetric,
-  formatPressure,
-  formatSpeed,
-  formatTemperature,
-  pressureUnitLabel,
-  speedUnitLabel,
-  temperatureUnitLabel,
-} from "../utils/format";
+import { DriverBottomStrip } from "../components/driver/DriverBottomStrip";
+import { DriverFocusCluster } from "../components/driver/DriverFocusCluster";
+import { DriverTopStrip } from "../components/driver/DriverTopStrip";
+import { TelemetryStateCard } from "../components/driver/TelemetryStateCard";
+import { TimingMetricCard } from "../components/driver/TimingMetricCard";
+import { buildDriverNormalViewModel } from "../utils/lemonsTelemetry";
 
 interface DriverNormalPageProps {
   snapshot: TelemetrySnapshot | null;
@@ -20,16 +13,7 @@ interface DriverNormalPageProps {
   session: SessionRecord | null;
   streamStatus: "connecting" | "connected" | "disconnected";
   displayPreferences: DisplayPreferences;
-}
-
-function accentForAlert(alerts: AlertEvent[], codePrefix: string): "default" | "warning" | "critical" {
-  if (alerts.some((alert) => alert.active && alert.code.startsWith(`${codePrefix}_critical`))) {
-    return "critical";
-  }
-  if (alerts.some((alert) => alert.active && alert.code.startsWith(`${codePrefix}_warning`))) {
-    return "warning";
-  }
-  return "default";
+  thresholds: AlertThresholdSettings;
 }
 
 export function DriverNormalPage({
@@ -38,55 +22,56 @@ export function DriverNormalPage({
   session,
   streamStatus,
   displayPreferences,
+  thresholds,
 }: DriverNormalPageProps) {
-  const liveAlerts = snapshot?.alerts ?? [];
-  const idleMessage = streamStatus === "connected" ? "No active alarms" : "Waiting for backend feed";
+  const view = buildDriverNormalViewModel({
+    snapshot,
+    session,
+    streamStatus,
+    thresholds,
+    displayPreferences,
+  });
 
   return (
-    <main className="screen screen--driver">
-      <header className="screen__header">
-        <div>
-          <p className="screen__eyebrow">PitSight</p>
-          <h1 className="screen__title">Driver Normal Mode</h1>
-        </div>
-      </header>
-
-      <WarningBanner
-        alerts={liveAlerts}
-        idleMessage={idleMessage}
-        displayPreferences={displayPreferences}
-      />
-      <StatusStrip
-        source={snapshot?.source}
-        streamStatus={streamStatus}
-        healthState={snapshot?.health_state}
-        sessionId={session?.session_id ?? snapshot?.session_id}
+    <main className="screen screen--driver screen--driver-theme">
+      <DriverTopStrip
+        title="Driver Normal"
+        statuses={view.topStatuses}
+        focus={view.focus}
+        alerts={view.alerts}
+        summary={view.summary}
       />
 
-      <section className="metric-grid metric-grid--driver">
-        <MetricCard label="Lap Count" value={formatMetric(snapshot?.lap.lap_count)} />
-        <MetricCard label="Current Lap" value={formatDuration(snapshot?.lap.current_lap_time_ms)} />
-        <MetricCard label="Previous Lap" value={formatDuration(snapshot?.lap.previous_lap_time_ms)} />
-        <MetricCard label="Best Lap" value={formatDuration(snapshot?.lap.best_lap_time_ms)} />
-        <MetricCard
-          label="Speed"
-          value={formatSpeed(snapshot?.engine.speed_kph, displayPreferences.speed_unit)}
-          unit={speedUnitLabel(displayPreferences.speed_unit)}
-        />
-        <MetricCard label="RPM" value={formatMetric(snapshot?.engine.rpm)} unit="rpm" />
-        <MetricCard
-          label="Oil Pressure"
-          value={formatPressure(snapshot?.engine.oil_pressure_bar, displayPreferences.pressure_unit)}
-          unit={pressureUnitLabel(displayPreferences.pressure_unit)}
-          accent={accentForAlert(liveAlerts, "low_oil_pressure")}
-        />
-        <MetricCard
-          label="Water Temp"
-          value={formatTemperature(snapshot?.engine.water_temp_c, displayPreferences.temperature_unit)}
-          unit={temperatureUnitLabel(displayPreferences.temperature_unit)}
-          accent={accentForAlert(liveAlerts, "high_water_temp")}
-        />
+      <section className="driver-layout driver-layout--normal">
+        <aside className="driver-column">
+          <div className="driver-section__title">Engine Health</div>
+          {view.engineMetrics.map((metric) => (
+            <TelemetryStateCard key={metric.id} metric={metric} />
+          ))}
+        </aside>
+
+        <section className="driver-main-panel driver-main-panel--normal">
+          <DriverFocusCluster focus={view.focus} />
+
+          <div className="driver-section">
+            <div className="driver-section__title">Timing &amp; Performance</div>
+            <div className="driver-timing-grid">
+              {view.timingMetrics.map((metric) => (
+                <TimingMetricCard key={metric.id} metric={metric} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <aside className="driver-column driver-column--support">
+          <div className="driver-section__title">Support Telemetry</div>
+          {view.supportMetrics.map((metric) => (
+            <TelemetryStateCard key={metric.id} metric={metric} />
+          ))}
+        </aside>
       </section>
+
+      <DriverBottomStrip summary={view.summary} items={view.footerItems} />
     </main>
   );
 }
