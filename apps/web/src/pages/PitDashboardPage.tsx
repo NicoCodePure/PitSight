@@ -28,7 +28,7 @@ export function PitDashboardPage({
     alerts,
     session,
     streamStatus,
-    displayPreferences: settings.shared.units,
+    displayPreferences: settings.effective.shared.units,
     settings,
   });
 

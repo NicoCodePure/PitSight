@@ -1,7 +1,12 @@
 import { SettingsSectionCard } from "./SettingsSectionCard";
-import { SettingsNumberField, SettingsToggleField } from "./SettingsControls";
+import { SettingsNumberField, SettingsSelectField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsSystemTabProps } from "./SettingsTabTypes";
-import { formatDashboardMode, formatRelativeSyncStatus, getScopeBadges } from "../../utils/settingsSync";
+import {
+  formatDashboardMode,
+  formatRelativeSyncStatus,
+  formatSyncStatusBadge,
+  getScopeBadges,
+} from "../../utils/settingsSync";
 import { titleCase } from "../../utils/format";
 
 export function SettingsSystemTab({
@@ -9,7 +14,10 @@ export function SettingsSystemTab({
   draft,
   lastSavedLabel,
   lastSyncLabel,
+  saving,
   onWebChange,
+  onUpdateSyncTestControls,
+  onApplyPendingToDevice,
 }: SettingsSystemTabProps) {
   return (
     <div className="settings-tab-panels">
@@ -49,6 +57,8 @@ export function SettingsSystemTab({
         description="Saved server settings, last known device state, and the currently applied dashboard mode are shown separately to avoid hidden duplication."
         badges={[
           formatRelativeSyncStatus(settings),
+          formatSyncStatusBadge(settings.sync.shared_sync_state),
+          formatSyncStatusBadge(settings.sync.device_local_sync_state),
           {
             label: settings.sync.pending_shared_changes ? "Pending Shared Changes" : "No Pending Shared Changes",
             tone: settings.sync.pending_shared_changes ? "warning" : "normal",
@@ -80,7 +90,99 @@ export function SettingsSystemTab({
             <dt>Pending Shared Changes</dt>
             <dd>{settings.sync.pending_shared_changes ? "Yes" : "No"}</dd>
           </div>
+          <div className="settings-meta__row">
+            <dt>Pending Device Changes</dt>
+            <dd>{settings.sync.pending_device_local_changes ? "Yes" : "No"}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Shared Sync</dt>
+            <dd>{titleCase(settings.sync.shared_sync_state)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Device Sync</dt>
+            <dd>{titleCase(settings.sync.device_local_sync_state)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Display Mode Sync</dt>
+            <dd>{titleCase(settings.sync.display_mode_sync_state)}</dd>
+          </div>
         </dl>
+      </SettingsSectionCard>
+
+      <SettingsSectionCard
+        title="Flow Testing Controls"
+        description="These controls expose deterministic pending, offline, and apply flows for end-to-end validation with the simulator backend."
+        badges={[
+          { label: "Flow Test", tone: "advisory" },
+          formatRelativeSyncStatus(settings),
+        ]}
+      >
+        <div className="settings-grid">
+          <SettingsSelectField
+            label="Device Sync Link"
+            helper="Auto follows live source state. Force offline/online to validate pending and reconnect behavior."
+            value={
+              settings.sync_test.device_online_override === null
+                ? "auto"
+                : settings.sync_test.device_online_override
+                  ? "online"
+                  : "offline"
+            }
+            onChange={(value) =>
+              void onUpdateSyncTestControls({
+                ...settings.sync_test,
+                device_online_override:
+                  value === "auto" ? null : value === "online",
+              })
+            }
+            options={[
+              { value: "auto", label: "Auto" },
+              { value: "online", label: "Force Online" },
+              { value: "offline", label: "Force Offline" },
+            ]}
+          />
+          <SettingsToggleField
+            label="Auto-Apply Shared Settings"
+            helper="When disabled, shared thresholds and units remain pending until you explicitly apply them."
+            checked={settings.sync_test.auto_apply_shared}
+            onChange={(value) =>
+              void onUpdateSyncTestControls({
+                ...settings.sync_test,
+                auto_apply_shared: value,
+              })
+            }
+          />
+          <SettingsToggleField
+            label="Auto-Apply Device Settings"
+            helper="When disabled, requested device-local settings stay distinct from confirmed device state."
+            checked={settings.sync_test.auto_apply_device_local}
+            onChange={(value) =>
+              void onUpdateSyncTestControls({
+                ...settings.sync_test,
+                auto_apply_device_local: value,
+              })
+            }
+          />
+        </div>
+
+        <div className="settings-actions">
+          <button
+            className="settings-button"
+            type="button"
+            disabled={
+              saving ||
+              !settings.sync.device_online ||
+              (!settings.sync.pending_shared_changes && !settings.sync.pending_device_local_changes)
+            }
+            onClick={() => void onApplyPendingToDevice()}
+          >
+            Apply Pending To Device
+          </button>
+        </div>
+
+        <div className="settings-note">
+          Live dashboards use effective confirmed shared settings. Save a change with auto-apply disabled or the device forced offline to verify pending behavior, then reconnect or apply to confirm it.
+        </div>
       </SettingsSectionCard>
 
       <SettingsSectionCard

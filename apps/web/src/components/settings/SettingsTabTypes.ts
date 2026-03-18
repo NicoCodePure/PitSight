@@ -1,4 +1,8 @@
-import type { AppSettingsSnapshot, AppSettingsUpdate } from "../../types/appSettings";
+import type {
+  AppSettingsSnapshot,
+  AppSettingsUpdate,
+  SyncTestControls,
+} from "../../types/appSettings";
 import type { SourceStatus } from "../../types/telemetry";
 import type { ThresholdFieldErrors, ThresholdFieldName, ThresholdInputState } from "../../utils/settingsForm";
 
@@ -59,6 +63,9 @@ export type WebChangeHandler = (
   value: AppSettingsUpdate["web"][WebField],
 ) => void;
 
+export type SyncTestControlsChangeHandler = (payload: SyncTestControls) => Promise<void>;
+export type ApplyPendingToDeviceHandler = () => Promise<void>;
+
 export interface SettingsConnectionsTabProps extends SettingsTabBaseProps {
   source?: SourceStatus | null;
   streamStatus: "connecting" | "connected" | "disconnected";
@@ -95,5 +102,8 @@ export interface SettingsCameraTabProps extends SettingsTabBaseProps {
 export interface SettingsSystemTabProps extends SettingsTabBaseProps {
   lastSavedLabel: string;
   lastSyncLabel: string;
+  saving: boolean;
   onWebChange: WebChangeHandler;
+  onUpdateSyncTestControls: SyncTestControlsChangeHandler;
+  onApplyPendingToDevice: ApplyPendingToDeviceHandler;
 }

@@ -44,6 +44,10 @@ export function SettingsThresholdsTab({
               );
             })}
           </div>
+
+          <div className="settings-note">
+            Live warning behavior follows the effective confirmed thresholds, not just the saved request.
+          </div>
         </SettingsSectionCard>
       ))}
     </div>

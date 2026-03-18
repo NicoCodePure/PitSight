@@ -29,6 +29,8 @@ interface SettingsPageProps {
   saving: boolean;
   error: string | null;
   onSave: (payload: AppSettingsUpdate) => Promise<void>;
+  onUpdateSyncTestControls: (payload: AppSettingsSnapshot["sync_test"]) => Promise<void>;
+  onApplyPendingToDevice: () => Promise<void>;
   source?: SourceStatus | null;
   streamStatus: "connecting" | "connected" | "disconnected";
 }
@@ -77,6 +79,8 @@ export function SettingsPage({
   saving,
   error,
   onSave,
+  onUpdateSyncTestControls,
+  onApplyPendingToDevice,
   source,
   streamStatus,
 }: SettingsPageProps) {
@@ -88,11 +92,15 @@ export function SettingsPage({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<StatusTone>("info");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const savedUpdateSignature = useMemo(
+    () => JSON.stringify(buildSavedUpdate(settings)),
+    [settings.device_local, settings.shared, settings.web],
+  );
 
   useEffect(() => {
     setDraft(buildSavedUpdate(settings));
     setThresholdInputs(buildThresholdInputState(settings.shared.thresholds, settings.shared.units));
-  }, [settings]);
+  }, [savedUpdateSignature]);
 
   const thresholdValidation = useMemo(
     () => validateThresholdInputs(thresholdInputs, draft.shared.units),
@@ -381,7 +389,10 @@ export function SettingsPage({
             draft={draft}
             lastSavedLabel={lastSavedLabel}
             lastSyncLabel={lastSyncLabel}
+            saving={saving}
             onWebChange={updateWeb}
+            onUpdateSyncTestControls={onUpdateSyncTestControls}
+            onApplyPendingToDevice={onApplyPendingToDevice}
           />
         );
     }
@@ -407,7 +418,7 @@ export function SettingsPage({
             Device-local, shared, and web-only settings with explicit sync awareness.
           </h2>
           <p className="settings-overview__body">
-            The Pi can run independently when offline. When connected, shared preferences sync through the web UI while device-owned hardware state remains explicit and confirmed.
+            The Pi can run independently when offline. Requested settings, effective device settings, and sync-test controls are exposed separately so pending and applied state can be validated end to end.
           </p>
         </div>
 
@@ -438,7 +449,7 @@ export function SettingsPage({
       {error ? <div className="settings-status settings-status--warning">{error}</div> : null}
       {isDirty ? (
         <div className="settings-status settings-status--info">
-          Unsaved changes are staged locally. Save to persist them and update sync state.
+          Unsaved changes are staged locally. Save to persist requested state. Driver and pit screens only react to effective confirmed settings.
         </div>
       ) : null}
       {thresholdValidation.summary ? (

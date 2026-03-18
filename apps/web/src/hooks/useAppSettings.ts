@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 
-import { fetchAppSettings, fetchDefaultAppSettings, updateAppSettings } from "../api/client";
-import type { AppSettingsSnapshot, AppSettingsUpdate } from "../types/appSettings";
+import {
+  applyPendingSettingsToDevice,
+  fetchAppSettings,
+  fetchDefaultAppSettings,
+  updateAppSettings,
+  updateSettingsSyncTestControls,
+} from "../api/client";
+import type { AppSettingsSnapshot, AppSettingsUpdate, SyncTestControls } from "../types/appSettings";
 import { DEFAULT_APP_SETTINGS, DEFAULT_APP_SETTINGS_UPDATE } from "../types/appSettings";
+
+const SETTINGS_REFRESH_INTERVAL_MS = 5000;
 
 interface AppSettingsState {
   settings: AppSettingsSnapshot;
@@ -12,6 +20,8 @@ interface AppSettingsState {
   error: string | null;
   refresh: () => Promise<void>;
   save: (payload: AppSettingsUpdate) => Promise<void>;
+  updateSyncTestControls: (payload: SyncTestControls) => Promise<void>;
+  applyPendingToDevice: () => Promise<void>;
 }
 
 export function useAppSettings(): AppSettingsState {
@@ -58,9 +68,41 @@ export function useAppSettings(): AppSettingsState {
     }
   };
 
+  const updateSyncTestControls = async (payload: SyncTestControls) => {
+    setSaving(true);
+    try {
+      const nextSettings = await updateSettingsSyncTestControls(payload);
+      setSettings(nextSettings);
+      setError(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyPendingToDevice = async () => {
+    setSaving(true);
+    try {
+      const nextSettings = await applyPendingSettingsToDevice();
+      setSettings(nextSettings);
+      setError(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (!saving) {
+        void refresh();
+      }
+    }, SETTINGS_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [saving]);
 
   return {
     settings,
@@ -70,5 +112,7 @@ export function useAppSettings(): AppSettingsState {
     error,
     refresh,
     save,
+    updateSyncTestControls,
+    applyPendingToDevice,
   };
 }

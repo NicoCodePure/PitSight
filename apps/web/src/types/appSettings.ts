@@ -121,9 +121,24 @@ export interface DeviceStateSnapshot {
 export interface SettingsSyncSnapshot {
   device_online: boolean;
   sync_state: SyncState;
+  shared_sync_state: SyncState;
+  device_local_sync_state: SyncState;
+  display_mode_sync_state: SyncState;
   last_sync_at: string | null;
   pending_shared_changes: boolean;
+  pending_device_local_changes: boolean;
   applied_dashboard_mode: DashboardMode;
+}
+
+export interface EffectiveSettingsSnapshot {
+  device_local: DeviceLocalSettings;
+  shared: SharedSettings;
+}
+
+export interface SyncTestControls {
+  device_online_override: boolean | null;
+  auto_apply_shared: boolean;
+  auto_apply_device_local: boolean;
 }
 
 export interface AppSettingsUpdate {
@@ -136,6 +151,8 @@ export interface AppSettingsSnapshot extends AppSettingsUpdate {
   updated_at: string;
   device_state: DeviceStateSnapshot;
   sync: SettingsSyncSnapshot;
+  effective: EffectiveSettingsSnapshot;
+  sync_test: SyncTestControls;
 }
 
 const EPOCH = new Date(0).toISOString();
@@ -222,8 +239,21 @@ export const DEFAULT_APP_SETTINGS: AppSettingsSnapshot = {
   sync: {
     device_online: false,
     sync_state: "device_offline",
+    shared_sync_state: "device_offline",
+    device_local_sync_state: "device_offline",
+    display_mode_sync_state: "device_offline",
     last_sync_at: EPOCH,
     pending_shared_changes: false,
+    pending_device_local_changes: false,
     applied_dashboard_mode: "driver_normal",
+  },
+  effective: {
+    device_local: structuredClone(DEFAULT_APP_SETTINGS_UPDATE.device_local),
+    shared: structuredClone(DEFAULT_APP_SETTINGS_UPDATE.shared),
+  },
+  sync_test: {
+    device_online_override: null,
+    auto_apply_shared: true,
+    auto_apply_device_local: true,
   },
 };

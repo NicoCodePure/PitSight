@@ -1,5 +1,9 @@
 import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
-import type { AppSettingsSnapshot, AppSettingsUpdate } from "../types/appSettings";
+import type {
+  AppSettingsSnapshot,
+  AppSettingsUpdate,
+  SyncTestControls,
+} from "../types/appSettings";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -107,6 +111,32 @@ export async function updateAppSettings(payload: AppSettingsUpdate): Promise<App
   });
   if (!response.ok) {
     throw await buildResponseError(response, "Failed to update app settings.");
+  }
+  return response.json();
+}
+
+export async function updateSettingsSyncTestControls(
+  payload: SyncTestControls,
+): Promise<AppSettingsSnapshot> {
+  const response = await fetch(buildUrl("/api/v1/settings/sync-test"), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw await buildResponseError(response, "Failed to update sync test controls.");
+  }
+  return response.json();
+}
+
+export async function applyPendingSettingsToDevice(): Promise<AppSettingsSnapshot> {
+  const response = await fetch(buildUrl("/api/v1/settings/sync-test/apply"), {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw await buildResponseError(response, "Failed to apply pending device settings.");
   }
   return response.json();
 }

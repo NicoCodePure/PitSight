@@ -11,7 +11,7 @@ class WarningEngine:
 
     @property
     def thresholds(self) -> AlertThresholdSettings:
-        return self.settings_service.current().shared.thresholds
+        return self.settings_service.current().effective.shared.thresholds
 
     def evaluate(self, snapshot: TelemetrySnapshot) -> list[AlertEvent]:
         alerts: list[AlertEvent] = list(snapshot.alerts)

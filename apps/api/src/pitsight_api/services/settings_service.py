@@ -18,10 +18,12 @@ from pitsight_api.core.models.app_settings import (
     DictatorConnectionMethod,
     DisplayPreferences,
     ECUTransportMethod,
+    EffectiveSettingsSnapshot,
     SettingsSyncSnapshot,
     SharedDisplaySettings,
     SharedSettings,
     SyncState,
+    SyncTestControls,
     WebOperatorSettings,
 )
 from pitsight_api.core.models.telemetry import SourceStatus
@@ -111,52 +113,122 @@ class SettingsService:
             updated_at=datetime.now(timezone.utc),
             device_state=current.device_state,
             sync=current.sync,
+            effective=current.effective,
+            sync_test=current.sync_test,
         )
         await self.repository.store_app_settings(next_snapshot)
         self._current = next_snapshot
         return next_snapshot
 
+    async def update_sync_test(self, controls: SyncTestControls) -> AppSettingsSnapshot:
+        current = self.current()
+        next_snapshot = current.model_copy(update={"sync_test": controls})
+        await self.repository.store_app_settings(next_snapshot)
+        self._current = next_snapshot
+        return next_snapshot
+
+    async def apply_requested_to_device(self, source_status: SourceStatus | None) -> AppSettingsSnapshot:
+        current = self.current()
+        device_online = self._resolve_device_online(source_status, current.sync_test)
+        if not device_online:
+            return await self.runtime_snapshot(source_status)
+
+        next_snapshot = self._apply_effective_state(
+            current=current,
+            apply_shared=True,
+            apply_device_local=True,
+            confirmed_at=datetime.now(timezone.utc),
+        )
+        await self.repository.store_app_settings(next_snapshot)
+        self._current = next_snapshot
+        return await self.runtime_snapshot(source_status)
+
+    def _resolve_device_online(
+        self,
+        source_status: SourceStatus | None,
+        controls: SyncTestControls,
+    ) -> bool:
+        if controls.device_online_override is not None:
+            return controls.device_online_override
+        return bool(source_status is not None and source_status.connected)
+
+    def _apply_effective_state(
+        self,
+        current: AppSettingsSnapshot,
+        *,
+        apply_shared: bool,
+        apply_device_local: bool,
+        confirmed_at: datetime,
+    ) -> AppSettingsSnapshot:
+        effective = current.effective
+
+        next_effective = EffectiveSettingsSnapshot(
+            device_local=current.device_local if apply_device_local else effective.device_local,
+            shared=current.shared if apply_shared else effective.shared,
+        )
+
+        device_state = current.device_state.model_copy(
+            update={
+                "last_known_dashboard_mode": next_effective.device_local.display.default_dashboard_mode,
+                "last_sync_at": confirmed_at,
+            }
+        )
+
+        return current.model_copy(
+            update={
+                "effective": next_effective,
+                "device_state": device_state,
+            }
+        )
+
+    def _sync_state_for_pending(self, device_online: bool, pending: bool) -> SyncState:
+        if pending:
+            return SyncState.AWAITING_APPLY_CONFIRMATION if device_online else SyncState.PENDING_SYNC
+        return SyncState.SYNCED if device_online else SyncState.DEVICE_OFFLINE
+
     async def runtime_snapshot(self, source_status: SourceStatus | None) -> AppSettingsSnapshot:
         current = self.current()
-        device_online = bool(source_status is not None and source_status.connected)
+        device_online = self._resolve_device_online(source_status, current.sync_test)
+        should_apply_shared = device_online and current.sync_test.auto_apply_shared
+        should_apply_device_local = device_online and current.sync_test.auto_apply_device_local
 
-        if device_online:
-            next_device_state = current.device_state.model_copy(
-                update={
-                    "last_known_dashboard_mode": current.device_local.display.default_dashboard_mode,
-                    "last_sync_at": current.updated_at,
-                }
+        if should_apply_shared or should_apply_device_local:
+            maybe_next = self._apply_effective_state(
+                current=current,
+                apply_shared=should_apply_shared,
+                apply_device_local=should_apply_device_local,
+                confirmed_at=datetime.now(timezone.utc),
             )
-            if next_device_state != current.device_state:
-                current = current.model_copy(update={"device_state": next_device_state})
+            if maybe_next != current:
+                current = maybe_next
                 await self.repository.store_app_settings(current)
                 self._current = current
 
-        last_sync_at = current.updated_at if device_online else current.device_state.last_sync_at
-        pending_shared_changes = (
-            not device_online
-            and current.device_state.last_sync_at is not None
-            and current.updated_at > current.device_state.last_sync_at
+        pending_shared_changes = current.shared != current.effective.shared
+        pending_device_local_changes = current.device_local != current.effective.device_local
+        display_mode_pending = (
+            current.device_local.display.default_dashboard_mode
+            != current.effective.device_local.display.default_dashboard_mode
         )
 
-        sync_state = (
-            SyncState.SYNCED
-            if device_online
-            else SyncState.PENDING_SYNC if pending_shared_changes else SyncState.DEVICE_OFFLINE
-        )
+        shared_sync_state = self._sync_state_for_pending(device_online, pending_shared_changes)
+        device_local_sync_state = self._sync_state_for_pending(device_online, pending_device_local_changes)
+        display_mode_sync_state = self._sync_state_for_pending(device_online, display_mode_pending)
+        overall_pending = pending_shared_changes or pending_device_local_changes
+        sync_state = self._sync_state_for_pending(device_online, overall_pending)
 
         return current.model_copy(
             update={
                 "sync": SettingsSyncSnapshot(
                     device_online=device_online,
                     sync_state=sync_state,
-                    last_sync_at=last_sync_at,
+                    shared_sync_state=shared_sync_state,
+                    device_local_sync_state=device_local_sync_state,
+                    display_mode_sync_state=display_mode_sync_state,
+                    last_sync_at=current.device_state.last_sync_at,
                     pending_shared_changes=pending_shared_changes,
-                    applied_dashboard_mode=(
-                        current.device_local.display.default_dashboard_mode
-                        if device_online
-                        else current.device_state.last_known_dashboard_mode
-                    ),
+                    pending_device_local_changes=pending_device_local_changes,
+                    applied_dashboard_mode=current.effective.device_local.display.default_dashboard_mode,
                 )
             }
         )

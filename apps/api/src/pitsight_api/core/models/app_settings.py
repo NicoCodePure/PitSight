@@ -9,6 +9,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pitsight_api.core.models.telemetry import ProviderName
 
 
+def _coerce_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
 class SpeedUnit(str, Enum):
     KPH = "kph"
     MPH = "mph"
@@ -231,9 +239,28 @@ class SettingsSyncSnapshot(BaseModel):
 
     device_online: bool = False
     sync_state: SyncState = SyncState.DEVICE_OFFLINE
+    shared_sync_state: SyncState = SyncState.DEVICE_OFFLINE
+    device_local_sync_state: SyncState = SyncState.DEVICE_OFFLINE
+    display_mode_sync_state: SyncState = SyncState.DEVICE_OFFLINE
     last_sync_at: datetime | None = None
     pending_shared_changes: bool = False
+    pending_device_local_changes: bool = False
     applied_dashboard_mode: DashboardMode = DashboardMode.DRIVER_NORMAL
+
+
+class EffectiveSettingsSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_local: DeviceLocalSettings = Field(default_factory=DeviceLocalSettings)
+    shared: SharedSettings
+
+
+class SyncTestControls(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_online_override: bool | None = None
+    auto_apply_shared: bool = True
+    auto_apply_device_local: bool = True
 
 
 class AppSettingsUpdate(BaseModel):
@@ -319,6 +346,8 @@ class AppSettingsSnapshot(AppSettingsUpdate):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     device_state: DeviceStateSnapshot = Field(default_factory=DeviceStateSnapshot)
     sync: SettingsSyncSnapshot = Field(default_factory=SettingsSyncSnapshot)
+    effective: EffectiveSettingsSnapshot
+    sync_test: SyncTestControls = Field(default_factory=SyncTestControls)
 
     @model_validator(mode="before")
     @classmethod
@@ -326,33 +355,58 @@ class AppSettingsSnapshot(AppSettingsUpdate):
         if not isinstance(raw_value, dict):
             return raw_value
 
-        if "device_state" in raw_value or "sync" in raw_value:
-            return raw_value
+        candidate: dict[str, Any]
+        if "device_local" in raw_value and "shared" in raw_value:
+            candidate = dict(raw_value)
+        else:
+            migrated_update = AppSettingsUpdate.migrate_legacy_payload(raw_value)
+            if not isinstance(migrated_update, dict):
+                return raw_value
+            candidate = migrated_update
 
-        migrated_update = AppSettingsUpdate.migrate_legacy_payload(raw_value)
-        if not isinstance(migrated_update, dict):
-            return raw_value
-
-        updated_at = raw_value.get("updated_at", datetime.now(timezone.utc).isoformat())
-        last_known_dashboard_mode = (
-            migrated_update["device_local"]["display"]["default_dashboard_mode"]
-            if isinstance(migrated_update, dict)
-            else DashboardMode.DRIVER_NORMAL.value
+        updated_at = candidate.get("updated_at", datetime.now(timezone.utc).isoformat())
+        device_local_payload = _coerce_mapping(candidate.get("device_local"))
+        shared_payload = _coerce_mapping(candidate.get("shared"))
+        raw_device_state = _coerce_mapping(candidate.get("device_state"))
+        raw_sync = _coerce_mapping(candidate.get("sync"))
+        effective = _coerce_mapping(candidate.get("effective"))
+        effective_device_local = _coerce_mapping(effective.get("device_local")) or device_local_payload
+        effective_shared = _coerce_mapping(effective.get("shared")) or shared_payload
+        applied_dashboard_mode = raw_sync.get(
+            "applied_dashboard_mode",
+            effective_device_local.get("display", {}).get(
+                "default_dashboard_mode",
+                device_local_payload["display"]["default_dashboard_mode"],
+            ),
+        )
+        last_known_dashboard_mode = raw_device_state.get(
+            "last_known_dashboard_mode",
+            applied_dashboard_mode,
         )
 
         return {
-            **migrated_update,
+            **candidate,
+            "device_local": device_local_payload,
+            "shared": shared_payload,
             "updated_at": updated_at,
             "device_state": {
                 **DeviceStateSnapshot().model_dump(mode="json"),
+                **raw_device_state,
                 "last_known_dashboard_mode": last_known_dashboard_mode,
-                "last_sync_at": updated_at,
+                "last_sync_at": raw_device_state.get("last_sync_at", updated_at),
             },
             "sync": {
-                "device_online": False,
-                "sync_state": SyncState.DEVICE_OFFLINE.value,
-                "last_sync_at": updated_at,
-                "pending_shared_changes": False,
-                "applied_dashboard_mode": last_known_dashboard_mode,
+                **SettingsSyncSnapshot().model_dump(mode="json"),
+                **raw_sync,
+                "last_sync_at": raw_sync.get("last_sync_at", updated_at),
+                "applied_dashboard_mode": applied_dashboard_mode,
+            },
+            "effective": {
+                "device_local": effective_device_local,
+                "shared": effective_shared,
+            },
+            "sync_test": {
+                **SyncTestControls().model_dump(mode="json"),
+                **_coerce_mapping(candidate.get("sync_test")),
             },
         }

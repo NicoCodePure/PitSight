@@ -61,6 +61,13 @@ export function formatRelativeSyncStatus(settings: AppSettingsSnapshot): Setting
   };
 }
 
+export function formatSyncStatusBadge(syncState: SyncState): SettingsStatusBadge {
+  return {
+    label: formatSyncState(syncState),
+    tone: SYNC_TONES[syncState],
+  };
+}
+
 export function getScopeBadges(
   scope: SettingsOwnershipScope,
   settings: AppSettingsSnapshot,
@@ -73,50 +80,14 @@ export function getScopeBadges(
   }
 
   if (scope === "shared") {
-    if (settings.sync.device_online && !settings.sync.pending_shared_changes) {
-      return [
-        { label: "Shared", tone: "normal" },
-        { label: "Synced", tone: "normal" },
-      ];
-    }
-
-    if (settings.sync.pending_shared_changes) {
-      return [
-        { label: "Shared", tone: "normal" },
-        { label: "Pending Sync", tone: "warning" },
-      ];
-    }
-
     return [
       { label: "Shared", tone: "normal" },
-      { label: "Device Offline", tone: "unavailable" },
-    ];
-  }
-
-  const desiredMode = settings.device_local.display.default_dashboard_mode;
-  const appliedMode = settings.sync.applied_dashboard_mode;
-
-  if (!settings.sync.device_online) {
-    return desiredMode !== appliedMode
-      ? [
-          { label: "Local Device", tone: "advisory" },
-          { label: "Pending Sync", tone: "warning" },
-        ]
-      : [
-          { label: "Local Device", tone: "advisory" },
-          { label: "Device Offline", tone: "unavailable" },
-        ];
-  }
-
-  if (desiredMode !== appliedMode) {
-    return [
-      { label: "Local Device", tone: "advisory" },
-      { label: "Awaiting Apply Confirmation", tone: "warning" },
+      formatSyncStatusBadge(settings.sync.shared_sync_state),
     ];
   }
 
   return [
     { label: "Local Device", tone: "advisory" },
-    { label: "Synced", tone: "normal" },
+    formatSyncStatusBadge(settings.sync.device_local_sync_state),
   ];
 }

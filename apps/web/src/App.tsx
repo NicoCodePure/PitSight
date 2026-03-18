@@ -9,13 +9,11 @@ import { PitDashboardPage } from "./pages/PitDashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 function getDashboardRoute(settings: AppSettingsSnapshot): string {
-  const requestedMode = settings.device_local.display.default_dashboard_mode;
-  const appliedMode: DashboardMode =
-    requestedMode === "last_used" ? settings.sync.applied_dashboard_mode : requestedMode;
+  const appliedMode: DashboardMode = settings.sync.applied_dashboard_mode;
 
   const effectiveMode: DashboardMode =
     appliedMode === "last_used"
-      ? settings.shared.display.preferred_driver_mode === "lemons"
+      ? settings.effective.shared.display.preferred_driver_mode === "lemons"
         ? "driver_lemons"
         : "driver_normal"
       : appliedMode;
@@ -86,8 +84,8 @@ export default function App() {
           element={
             <DriverNormalPage
               {...telemetry}
-              displayPreferences={appSettings.settings.shared.units}
-              thresholds={appSettings.settings.shared.thresholds}
+              displayPreferences={appSettings.settings.effective.shared.units}
+              thresholds={appSettings.settings.effective.shared.thresholds}
             />
           }
         />
@@ -96,8 +94,8 @@ export default function App() {
           element={
             <DriverLemonsPage
               {...telemetry}
-              displayPreferences={appSettings.settings.shared.units}
-              thresholds={appSettings.settings.shared.thresholds}
+              displayPreferences={appSettings.settings.effective.shared.units}
+              thresholds={appSettings.settings.effective.shared.thresholds}
             />
           }
         />
@@ -115,6 +113,8 @@ export default function App() {
               saving={appSettings.saving}
               error={appSettings.error}
               onSave={appSettings.save}
+              onUpdateSyncTestControls={appSettings.updateSyncTestControls}
+              onApplyPendingToDevice={appSettings.applyPendingToDevice}
               source={telemetry.snapshot?.source ?? null}
               streamStatus={telemetry.streamStatus}
             />

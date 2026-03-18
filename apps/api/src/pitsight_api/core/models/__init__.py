@@ -4,11 +4,13 @@ from pitsight_api.core.models.app_settings import (
     AppSettingsUpdate,
     DashboardMode,
     DistanceUnit,
+    EffectiveSettingsSnapshot,
     DisplayPreferences,
     DriverMode,
     PressureUnit,
     SpeedUnit,
     SyncState,
+    SyncTestControls,
     TemperatureUnit,
 )
 from pitsight_api.core.models.session import SessionRecord
@@ -36,6 +38,7 @@ __all__ = [
     "ConnectionState",
     "DashboardMode",
     "DistanceUnit",
+    "EffectiveSettingsSnapshot",
     "DisplayPreferences",
     "DriverMode",
     "EngineMetrics",
@@ -50,6 +53,7 @@ __all__ = [
     "SpeedUnit",
     "SourceStatus",
     "SyncState",
+    "SyncTestControls",
     "TemperatureUnit",
     "TelemetrySnapshot",
 ]

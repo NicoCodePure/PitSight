@@ -12,7 +12,9 @@ from pitsight_api.core.models.app_settings import (
     PressureUnit,
     SpeedUnit,
     SyncState,
+    SyncTestControls,
     TemperatureUnit,
+    WifiMode,
 )
 from pitsight_api.core.models.telemetry import ConnectionState, ProviderName, SourceStatus
 from pitsight_api.services.settings_service import SettingsService
@@ -51,6 +53,9 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
         assert loaded.shared.units.distance_unit is DistanceUnit.KM
         assert loaded.shared.display.preferred_driver_mode is DriverMode.LEMONS
         assert loaded.device_local.display.default_dashboard_mode is DashboardMode.DRIVER_NORMAL
+        assert loaded.effective.shared.thresholds.oil_pressure_warning_bar == 1.7
+        assert loaded.effective.device_local.display.default_dashboard_mode is DashboardMode.DRIVER_NORMAL
+        assert loaded.sync_test.auto_apply_shared is True
         assert default_update.shared.units.pressure_unit is PressureUnit.PSI
 
         updated = await service.update(
@@ -128,6 +133,23 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
         assert updated.device_local.display.default_dashboard_mode is DashboardMode.PIT_DASHBOARD
         assert updated.shared.units.distance_unit is DistanceUnit.MILES
         assert updated.web.alert_history_limit == 40
+        assert updated.effective.shared.thresholds.oil_pressure_warning_bar == 1.7
+
+        synced = await service.runtime_snapshot(
+            SourceStatus(
+                provider=ProviderName.SIMULATOR,
+                transport="simulated",
+                protocol="loopback",
+                connection_state=ConnectionState.CONNECTED,
+                connected=True,
+                raw_capture_enabled=False,
+            )
+        )
+        assert synced.sync.sync_state is SyncState.SYNCED
+        assert synced.sync.shared_sync_state is SyncState.SYNCED
+        assert synced.sync.device_local_sync_state is SyncState.SYNCED
+        assert synced.effective.shared.thresholds.oil_pressure_warning_bar == 1.9
+        assert synced.effective.device_local.display.default_dashboard_mode is DashboardMode.PIT_DASHBOARD
 
         await repository.close()
 
@@ -143,13 +165,15 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
             assert reloaded.shared.units.temperature_unit is TemperatureUnit.CELSIUS
             assert reloaded.device_local.connections.bluetooth_enabled is True
             assert reloaded.web.diagnostics_panel_enabled is False
+            assert reloaded.effective.shared.thresholds.oil_pressure_warning_bar == 1.9
+            assert reloaded.effective.device_local.display.default_dashboard_mode is DashboardMode.PIT_DASHBOARD
         finally:
             await reloaded_repository.close()
 
     asyncio.run(scenario())
 
 
-def test_settings_service_runtime_snapshot_tracks_sync_state(tmp_path) -> None:
+def test_settings_service_runtime_snapshot_tracks_pending_and_apply_state(tmp_path) -> None:
     async def scenario() -> None:
         database_path = tmp_path / "pitsight-settings-sync.db"
         defaults = Settings(_env_file=None, database_path=database_path)
@@ -159,27 +183,36 @@ def test_settings_service_runtime_snapshot_tracks_sync_state(tmp_path) -> None:
 
         service = SettingsService(repository=repository, defaults=defaults)
         loaded = await service.load()
-
-        last_sync_at = datetime(2026, 3, 18, 10, 0, tzinfo=timezone.utc)
-        service._current = loaded.model_copy(
-            update={
-                "device_state": loaded.device_state.model_copy(
-                    update={
-                        "last_known_dashboard_mode": DashboardMode.DRIVER_LEMONS,
-                        "last_sync_at": last_sync_at,
-                    }
-                ),
-                "updated_at": datetime(2026, 3, 18, 10, 5, tzinfo=timezone.utc),
-            }
+        await service.update_sync_test(
+            SyncTestControls(
+                device_online_override=False,
+                auto_apply_shared=False,
+                auto_apply_device_local=False,
+            )
+        )
+        await service.update(
+            loaded.model_copy(
+                update={
+                    "shared": loaded.shared.model_copy(
+                        update={
+                            "units": loaded.shared.units.model_copy(update={"speed_unit": SpeedUnit.MPH}),
+                        }
+                    ),
+                    "device_local": loaded.device_local.model_copy(
+                        update={
+                            "display": loaded.device_local.display.model_copy(
+                                update={"default_dashboard_mode": DashboardMode.DRIVER_LEMONS}
+                            ),
+                            "connections": loaded.device_local.connections.model_copy(
+                                update={"wifi_mode": WifiMode.HOTSPOT}
+                            ),
+                        }
+                    ),
+                }
+            )
         )
 
-        offline_snapshot = await service.runtime_snapshot(None)
-        assert offline_snapshot.sync.device_online is False
-        assert offline_snapshot.sync.sync_state is SyncState.PENDING_SYNC
-        assert offline_snapshot.sync.pending_shared_changes is True
-        assert offline_snapshot.sync.applied_dashboard_mode is DashboardMode.DRIVER_LEMONS
-
-        online_snapshot = await service.runtime_snapshot(
+        offline_snapshot = await service.runtime_snapshot(
             SourceStatus(
                 provider=ProviderName.SIMULATOR,
                 transport="simulated",
@@ -189,14 +222,59 @@ def test_settings_service_runtime_snapshot_tracks_sync_state(tmp_path) -> None:
                 raw_capture_enabled=False,
             )
         )
-        assert online_snapshot.sync.device_online is True
-        assert online_snapshot.sync.sync_state is SyncState.SYNCED
-        assert online_snapshot.sync.pending_shared_changes is False
-        assert (
-            online_snapshot.sync.applied_dashboard_mode
-            is online_snapshot.device_local.display.default_dashboard_mode
+        assert offline_snapshot.sync.device_online is False
+        assert offline_snapshot.sync.sync_state is SyncState.PENDING_SYNC
+        assert offline_snapshot.sync.pending_shared_changes is True
+        assert offline_snapshot.sync.pending_device_local_changes is True
+        assert offline_snapshot.sync.shared_sync_state is SyncState.PENDING_SYNC
+        assert offline_snapshot.sync.device_local_sync_state is SyncState.PENDING_SYNC
+        assert offline_snapshot.sync.display_mode_sync_state is SyncState.PENDING_SYNC
+        assert offline_snapshot.sync.applied_dashboard_mode is DashboardMode.DRIVER_NORMAL
+        assert offline_snapshot.effective.shared.units.speed_unit is SpeedUnit.KPH
+        assert offline_snapshot.effective.device_local.display.default_dashboard_mode is DashboardMode.DRIVER_NORMAL
+
+        await service.update_sync_test(
+            SyncTestControls(
+                device_online_override=True,
+                auto_apply_shared=False,
+                auto_apply_device_local=False,
+            )
         )
-        assert online_snapshot.device_state.last_known_dashboard_mode is DashboardMode.DRIVER_NORMAL
+        online_pending_snapshot = await service.runtime_snapshot(
+            SourceStatus(
+                provider=ProviderName.SIMULATOR,
+                transport="simulated",
+                protocol="loopback",
+                connection_state=ConnectionState.CONNECTED,
+                connected=True,
+                raw_capture_enabled=False,
+            )
+        )
+        assert online_pending_snapshot.sync.device_online is True
+        assert online_pending_snapshot.sync.sync_state is SyncState.AWAITING_APPLY_CONFIRMATION
+        assert online_pending_snapshot.sync.shared_sync_state is SyncState.AWAITING_APPLY_CONFIRMATION
+        assert online_pending_snapshot.sync.device_local_sync_state is SyncState.AWAITING_APPLY_CONFIRMATION
+        assert online_pending_snapshot.sync.display_mode_sync_state is SyncState.AWAITING_APPLY_CONFIRMATION
+        assert online_pending_snapshot.sync.applied_dashboard_mode is DashboardMode.DRIVER_NORMAL
+
+        applied_snapshot = await service.apply_requested_to_device(
+            SourceStatus(
+                provider=ProviderName.SIMULATOR,
+                transport="simulated",
+                protocol="loopback",
+                connection_state=ConnectionState.CONNECTED,
+                connected=True,
+                raw_capture_enabled=False,
+            )
+        )
+        assert applied_snapshot.sync.device_online is True
+        assert applied_snapshot.sync.sync_state is SyncState.SYNCED
+        assert applied_snapshot.sync.pending_shared_changes is False
+        assert applied_snapshot.sync.pending_device_local_changes is False
+        assert applied_snapshot.effective.shared.units.speed_unit is SpeedUnit.MPH
+        assert applied_snapshot.effective.device_local.connections.wifi_mode.value == "hotspot"
+        assert applied_snapshot.sync.applied_dashboard_mode is DashboardMode.DRIVER_LEMONS
+        assert applied_snapshot.device_state.last_known_dashboard_mode is DashboardMode.DRIVER_LEMONS
 
         await repository.close()
 

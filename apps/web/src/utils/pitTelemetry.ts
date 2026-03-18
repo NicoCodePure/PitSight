@@ -184,7 +184,7 @@ export function buildPitDashboardViewModel({
     snapshot,
     session,
     streamStatus,
-    thresholds: settings.shared.thresholds,
+    thresholds: settings.effective.shared.thresholds,
     displayPreferences,
   });
 
@@ -279,7 +279,7 @@ export function buildPitDashboardViewModel({
     {
       id: "camera",
       label: "Camera",
-      value: settings.shared.camera_mode_preference.toUpperCase(),
+      value: settings.effective.shared.camera_mode_preference.toUpperCase(),
     },
     {
       id: "dashboard",

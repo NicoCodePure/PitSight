@@ -1,7 +1,11 @@
 import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsLiveCard, SettingsSelectField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsDisplayTabProps } from "./SettingsTabTypes";
-import { formatDashboardMode, getScopeBadges } from "../../utils/settingsSync";
+import {
+  formatDashboardMode,
+  formatSyncStatusBadge,
+  getScopeBadges,
+} from "../../utils/settingsSync";
 
 function dashboardModeRouteHint(mode: string): string {
   switch (mode) {
@@ -27,7 +31,10 @@ export function SettingsDisplayTab({
       <SettingsSectionCard
         title="Default Dashboard Mode"
         description="This controls which dashboard the Pi should show by default. The desired mode is device-applicable, but the Pi must confirm the actually running mode."
-        badges={getScopeBadges("device", settings)}
+        badges={[
+          ...getScopeBadges("device", settings),
+          formatSyncStatusBadge(settings.sync.display_mode_sync_state),
+        ]}
       >
         <div className="settings-grid">
           <SettingsSelectField
@@ -43,7 +50,17 @@ export function SettingsDisplayTab({
             ]}
           />
           <SettingsLiveCard
-            label="Current Applied Mode"
+            label="Requested Default"
+            value={formatDashboardMode(draft.device_local.display.default_dashboard_mode)}
+            detail="Saved web-side request for the Pi default dashboard."
+          />
+          <SettingsLiveCard
+            label="Confirmed Device Default"
+            value={formatDashboardMode(settings.effective.device_local.display.default_dashboard_mode)}
+            detail="Last device-confirmed default dashboard mode."
+          />
+          <SettingsLiveCard
+            label="Current Active Mode"
             value={formatDashboardMode(settings.sync.applied_dashboard_mode)}
             detail={dashboardModeRouteHint(settings.sync.applied_dashboard_mode)}
           />

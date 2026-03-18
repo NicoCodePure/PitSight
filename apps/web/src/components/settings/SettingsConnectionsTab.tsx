@@ -1,7 +1,7 @@
 import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsSelectField, SettingsTextField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsConnectionsTabProps } from "./SettingsTabTypes";
-import { getScopeBadges } from "../../utils/settingsSync";
+import { formatSyncStatusBadge, getScopeBadges } from "../../utils/settingsSync";
 import { titleCase } from "../../utils/format";
 
 export function SettingsConnectionsTab({
@@ -18,7 +18,10 @@ export function SettingsConnectionsTab({
       <SettingsSectionCard
         title="Network Modes"
         description="These are device-owned transport settings. They describe how the Pi is expected to reach telemetry and the web control surface."
-        badges={getScopeBadges("device", settings)}
+        badges={[
+          ...getScopeBadges("device", settings),
+          formatSyncStatusBadge(settings.sync.device_local_sync_state),
+        ]}
       >
         <div className="settings-grid">
           <SettingsSelectField
@@ -52,12 +55,30 @@ export function SettingsConnectionsTab({
             onChange={(value) => onConnectionChange("direct_data_mode_enabled", value)}
           />
         </div>
+
+        <dl className="settings-meta">
+          <div className="settings-meta__row">
+            <dt>Confirmed Wi-Fi Mode</dt>
+            <dd>{titleCase(settings.effective.device_local.connections.wifi_mode)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Confirmed SSID</dt>
+            <dd>{settings.effective.device_local.connections.wifi_ssid || "--"}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Confirmed Ethernet Link</dt>
+            <dd>{settings.effective.device_local.connections.ethernet_direct_enabled ? "Enabled" : "Disabled"}</dd>
+          </div>
+        </dl>
       </SettingsSectionCard>
 
       <SettingsSectionCard
         title="Bluetooth / OBD Pairing"
         description="Bluetooth state remains device-owned. The web UI can stage or review configuration, but the Pi confirms what is actually paired."
-        badges={getScopeBadges("device", settings)}
+        badges={[
+          ...getScopeBadges("device", settings),
+          formatSyncStatusBadge(settings.sync.device_local_sync_state),
+        ]}
       >
         <div className="settings-grid">
           <SettingsToggleField
@@ -79,6 +100,14 @@ export function SettingsConnectionsTab({
           <div className="settings-meta__row">
             <dt>Pairing State</dt>
             <dd>{titleCase(draft.device_local.connections.bluetooth_pairing_state)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Confirmed Bluetooth</dt>
+            <dd>{settings.effective.device_local.connections.bluetooth_enabled ? "Enabled" : "Disabled"}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Confirmed OBD Pairing</dt>
+            <dd>{settings.effective.device_local.connections.bluetooth_obd_pairing_name || "--"}</dd>
           </div>
           <div className="settings-meta__row">
             <dt>Source Link</dt>

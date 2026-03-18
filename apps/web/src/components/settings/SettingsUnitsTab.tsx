@@ -59,7 +59,7 @@ export function SettingsUnitsTab({
         </div>
 
         <div className="settings-note">
-          Unit changes immediately update the local editing view. They become shared live preferences after save and sync confirmation.
+          Unit changes immediately update the local editing view. Driver and pit screens only switch once these values move into the effective confirmed shared settings.
         </div>
       </SettingsSectionCard>
     </div>
