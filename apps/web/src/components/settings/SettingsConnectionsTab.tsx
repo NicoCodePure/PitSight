@@ -2,7 +2,7 @@ import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsSelectField, SettingsTextField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsConnectionsTabProps } from "./SettingsTabTypes";
 import { formatSyncStatusBadge, getScopeBadges } from "../../utils/settingsSync";
-import { titleCase } from "../../utils/format";
+import { formatTimestamp, titleCase } from "../../utils/format";
 
 export function SettingsConnectionsTab({
   settings,
@@ -116,6 +116,14 @@ export function SettingsConnectionsTab({
           <div className="settings-meta__row">
             <dt>Stream State</dt>
             <dd>{titleCase(streamStatus)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Device Health</dt>
+            <dd>{titleCase(settings.device_state.connection_health_summary)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Last Device Seen</dt>
+            <dd>{settings.device_state.last_seen_at ? formatTimestamp(settings.device_state.last_seen_at) : "--"}</dd>
           </div>
         </dl>
 

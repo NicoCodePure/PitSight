@@ -26,6 +26,14 @@ export type SyncState =
   | "local_device_setting"
   | "awaiting_apply_confirmation";
 export type ProviderName = "simulator" | "obd2" | "dictator";
+export type DeviceConnectionHealth = "nominal" | "degraded" | "fault" | "offline";
+export type ActiveDashboardModeSource = "reported" | "applied_default" | "last_known";
+export type TelemetryConnectionState =
+  | "connecting"
+  | "connected"
+  | "degraded"
+  | "disconnected"
+  | "fault";
 
 export interface AlertThresholdSettings {
   oil_pressure_advisory_bar: number;
@@ -113,9 +121,29 @@ export interface DeviceStateSnapshot {
   device_id: string;
   device_label: string;
   software_version: string;
+  hostname: string;
+  platform: string;
+  heartbeat_interval_seconds: number;
+  heartbeat_timeout_seconds: number;
+  last_seen_at: string | null;
   last_known_dashboard_mode: DashboardMode;
+  current_dashboard_mode: DashboardMode;
+  current_dashboard_mode_source: ActiveDashboardModeSource;
+  active_source_provider: ProviderName | null;
+  source_connection_state: TelemetryConnectionState | null;
+  source_connected: boolean;
+  connection_health_summary: DeviceConnectionHealth;
+  online: boolean;
   last_sync_at: string | null;
   connected_peripherals: string[];
+}
+
+export interface DeviceHeartbeatReport {
+  current_dashboard_mode?: DashboardMode | null;
+  active_source_provider?: ProviderName | null;
+  source_connection_state?: TelemetryConnectionState | null;
+  source_connected?: boolean | null;
+  connected_peripherals?: string[] | null;
 }
 
 export interface SettingsSyncSnapshot {
@@ -232,7 +260,19 @@ export const DEFAULT_APP_SETTINGS: AppSettingsSnapshot = {
     device_id: "pitsight-pi-sim-01",
     device_label: "PitSight Pi Simulator",
     software_version: "0.1.0",
+    hostname: "localhost",
+    platform: "simulator",
+    heartbeat_interval_seconds: 5,
+    heartbeat_timeout_seconds: 15,
+    last_seen_at: null,
     last_known_dashboard_mode: "driver_normal",
+    current_dashboard_mode: "driver_normal",
+    current_dashboard_mode_source: "applied_default",
+    active_source_provider: null,
+    source_connection_state: null,
+    source_connected: false,
+    connection_health_summary: "offline",
+    online: false,
     last_sync_at: EPOCH,
     connected_peripherals: ["simulator feed", "loopback websocket"],
   },

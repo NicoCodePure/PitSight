@@ -22,7 +22,10 @@ async def get_settings(
     telemetry_service: Annotated[TelemetryService, Depends(get_telemetry_service)],
 ) -> AppSettingsSnapshot:
     snapshot = await telemetry_service.latest_snapshot()
-    return await service.runtime_snapshot(snapshot.source if snapshot is not None else None)
+    return await service.runtime_snapshot(
+        snapshot.source if snapshot is not None else None,
+        snapshot.timestamp if snapshot is not None else None,
+    )
 
 
 @router.get("/settings/defaults", response_model=AppSettingsUpdate)
@@ -40,7 +43,10 @@ async def update_settings(
 ) -> AppSettingsSnapshot:
     await service.update(payload)
     snapshot = await telemetry_service.latest_snapshot()
-    return await service.runtime_snapshot(snapshot.source if snapshot is not None else None)
+    return await service.runtime_snapshot(
+        snapshot.source if snapshot is not None else None,
+        snapshot.timestamp if snapshot is not None else None,
+    )
 
 
 @router.put("/settings/sync-test", response_model=AppSettingsSnapshot)
@@ -51,7 +57,10 @@ async def update_sync_test_controls(
 ) -> AppSettingsSnapshot:
     await service.update_sync_test(payload)
     snapshot = await telemetry_service.latest_snapshot()
-    return await service.runtime_snapshot(snapshot.source if snapshot is not None else None)
+    return await service.runtime_snapshot(
+        snapshot.source if snapshot is not None else None,
+        snapshot.timestamp if snapshot is not None else None,
+    )
 
 
 @router.post("/settings/sync-test/apply", response_model=AppSettingsSnapshot)
@@ -60,4 +69,7 @@ async def apply_pending_settings(
     telemetry_service: Annotated[TelemetryService, Depends(get_telemetry_service)],
 ) -> AppSettingsSnapshot:
     snapshot = await telemetry_service.latest_snapshot()
-    return await service.apply_requested_to_device(snapshot.source if snapshot is not None else None)
+    return await service.apply_requested_to_device(
+        snapshot.source if snapshot is not None else None,
+        snapshot.timestamp if snapshot is not None else None,
+    )

@@ -23,7 +23,7 @@ export function SettingsVehicleTab({
         <div className="settings-grid settings-grid--single">
           <SettingsSelectField
             label="Telemetry Source"
-            helper="Simulator is live now. OBD2 and Dictator remain future-ready wiring targets."
+            helper="Simulator and OBD2 are available baseline source paths today. Runtime provider selection still follows backend startup configuration."
             value={draft.shared.telemetry_source_preference}
             onChange={(value) => onSharedRootChange("telemetry_source_preference", value as typeof draft.shared.telemetry_source_preference)}
             options={[
@@ -94,7 +94,7 @@ export function SettingsVehicleTab({
         </div>
 
         <div className="settings-note">
-          ECU test actions will plug into provider-specific services later. The current MVP stays deterministic with saved intent plus live source status.
+          OBD2 uses the current backend provider path when started in OBD2 mode. Dictator USB now has a baseline provider path, while Dictator wireless remains a future slice.
         </div>
       </SettingsSectionCard>
     </div>

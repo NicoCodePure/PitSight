@@ -17,6 +17,7 @@ from pitsight_api.core.models.app_settings import (
     WifiMode,
 )
 from pitsight_api.core.models.telemetry import ConnectionState, ProviderName, SourceStatus
+from pitsight_api.services.device_runtime_service import DeviceRuntimeService
 from pitsight_api.services.settings_service import SettingsService
 from pitsight_api.storage.repository import SQLiteRepository
 
@@ -43,7 +44,11 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
         repository = SQLiteRepository(database_path)
         await repository.initialize()
 
-        service = SettingsService(repository=repository, defaults=defaults)
+        service = SettingsService(
+            repository=repository,
+            defaults=defaults,
+            device_runtime_service=DeviceRuntimeService(defaults),
+        )
         loaded = await service.load()
         default_update = service.default_update()
 
@@ -156,7 +161,11 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
         reloaded_repository = SQLiteRepository(database_path)
         await reloaded_repository.initialize()
         try:
-            reloaded_service = SettingsService(repository=reloaded_repository, defaults=defaults)
+            reloaded_service = SettingsService(
+                repository=reloaded_repository,
+                defaults=defaults,
+                device_runtime_service=DeviceRuntimeService(defaults),
+            )
             reloaded = await reloaded_service.load()
 
             assert reloaded.shared.thresholds.oil_pressure_warning_bar == 1.9
@@ -181,7 +190,11 @@ def test_settings_service_runtime_snapshot_tracks_pending_and_apply_state(tmp_pa
         repository = SQLiteRepository(database_path)
         await repository.initialize()
 
-        service = SettingsService(repository=repository, defaults=defaults)
+        service = SettingsService(
+            repository=repository,
+            defaults=defaults,
+            device_runtime_service=DeviceRuntimeService(defaults),
+        )
         loaded = await service.load()
         await service.update_sync_test(
             SyncTestControls(

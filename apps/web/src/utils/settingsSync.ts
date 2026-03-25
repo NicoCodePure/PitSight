@@ -1,6 +1,8 @@
 import type {
+  ActiveDashboardModeSource,
   AppSettingsSnapshot,
   DashboardMode,
+  DeviceConnectionHealth,
   ProviderName,
   SyncState,
 } from "../types/appSettings";
@@ -24,6 +26,26 @@ const PROVIDER_LABELS: Record<ProviderName, string> = {
   simulator: "Simulator",
   obd2: "OBD2",
   dictator: "Dictator",
+};
+
+const DEVICE_HEALTH_LABELS: Record<DeviceConnectionHealth, string> = {
+  nominal: "Nominal",
+  degraded: "Degraded",
+  fault: "Fault",
+  offline: "Offline",
+};
+
+const DEVICE_HEALTH_TONES: Record<DeviceConnectionHealth, SettingsBadgeTone> = {
+  nominal: "normal",
+  degraded: "warning",
+  fault: "critical",
+  offline: "unavailable",
+};
+
+const MODE_SOURCE_LABELS: Record<ActiveDashboardModeSource, string> = {
+  reported: "Reported",
+  applied_default: "Applied Default",
+  last_known: "Last Known",
 };
 
 const SYNC_LABELS: Record<SyncState, string> = {
@@ -50,6 +72,10 @@ export function formatProviderPreference(provider: ProviderName): string {
   return PROVIDER_LABELS[provider];
 }
 
+export function formatProviderRuntime(provider: ProviderName | null): string {
+  return provider ? PROVIDER_LABELS[provider] : "Unavailable";
+}
+
 export function formatSyncState(syncState: SyncState): string {
   return SYNC_LABELS[syncState];
 }
@@ -66,6 +92,17 @@ export function formatSyncStatusBadge(syncState: SyncState): SettingsStatusBadge
     label: formatSyncState(syncState),
     tone: SYNC_TONES[syncState],
   };
+}
+
+export function formatDeviceHealth(health: DeviceConnectionHealth): SettingsStatusBadge {
+  return {
+    label: DEVICE_HEALTH_LABELS[health],
+    tone: DEVICE_HEALTH_TONES[health],
+  };
+}
+
+export function formatActiveModeSource(source: ActiveDashboardModeSource): string {
+  return MODE_SOURCE_LABELS[source];
 }
 
 export function getScopeBadges(

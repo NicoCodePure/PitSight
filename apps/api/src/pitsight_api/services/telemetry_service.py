@@ -6,9 +6,14 @@ from collections.abc import Iterable
 
 from fastapi import WebSocket
 
+from pitsight_api.core.models.event import SystemEvent
 from pitsight_api.core.models.session import SessionRecord
 from pitsight_api.core.models.telemetry import AlertEvent, TelemetrySnapshot
 from pitsight_api.providers.base import ProviderMetadata, TelemetryProvider
+from pitsight_api.services.camera_service import CameraService
+from pitsight_api.services.device_runtime_service import DeviceRuntimeService
+from pitsight_api.services.event_service import EventService
+from pitsight_api.services.gps_service import GPSService
 from pitsight_api.services.session_service import SessionService
 from pitsight_api.services.warning_engine import WarningEngine
 from pitsight_api.storage.repository import SQLiteRepository
@@ -23,12 +28,20 @@ class TelemetryService:
         repository: SQLiteRepository,
         warning_engine: WarningEngine,
         session_service: SessionService,
+        device_runtime_service: DeviceRuntimeService,
+        camera_service: CameraService,
+        gps_service: GPSService,
+        event_service: EventService | None = None,
         alert_history_limit: int = 50,
     ) -> None:
         self.provider = provider
         self.repository = repository
         self.warning_engine = warning_engine
         self.session_service = session_service
+        self.device_runtime_service = device_runtime_service
+        self.camera_service = camera_service
+        self.gps_service = gps_service
+        self.event_service = event_service
         self.alert_history_limit = alert_history_limit
         self._task: asyncio.Task[None] | None = None
         self._latest_snapshot: TelemetrySnapshot | None = None
@@ -70,12 +83,22 @@ class TelemetryService:
     async def _run_stream(self) -> None:
         try:
             async for snapshot in self.provider.stream():
-                alerts = self.warning_engine.evaluate(snapshot)
-                enriched = snapshot.with_alerts(alerts)
+                self.device_runtime_service.observe_source(snapshot.source, observed_at=snapshot.timestamp)
+                gps_status = await self.gps_service.current_status()
+                camera_status = await self.camera_service.current_status()
+                snapshot_update: dict[str, object] = {"camera": camera_status}
+                if self.gps_service.should_override_snapshot():
+                    snapshot_update["gps"] = gps_status
+                enriched_snapshot = snapshot.model_copy(update=snapshot_update)
+                alerts = self.warning_engine.evaluate(enriched_snapshot)
+                enriched = enriched_snapshot.with_alerts(alerts)
+                transition_events = self._build_transition_events(self._latest_snapshot, enriched)
                 self._latest_snapshot = enriched
                 self._first_snapshot_ready.set()
                 await self.repository.store_snapshot(enriched)
                 await self._store_new_alerts(enriched.session_id, enriched.timestamp.isoformat(), alerts)
+                if self.event_service is not None and transition_events:
+                    await self.event_service.record_events(transition_events)
                 await self._broadcast(enriched)
         except asyncio.CancelledError:
             raise
@@ -123,8 +146,22 @@ class TelemetryService:
     async def recent_alerts(self, limit: int = 20) -> list[AlertEvent]:
         return await self.repository.fetch_recent_alerts(limit=min(limit, self.alert_history_limit))
 
+    async def recent_events(self, limit: int = 20) -> list[SystemEvent]:
+        if self.event_service is None:
+            return []
+        return await self.event_service.recent_events(limit=limit)
+
     async def current_session(self) -> SessionRecord | None:
         session = self.session_service.current_session()
         if session is not None:
             return session
         return await self.repository.fetch_current_session()
+
+    def _build_transition_events(
+        self,
+        previous_snapshot: TelemetrySnapshot | None,
+        current_snapshot: TelemetrySnapshot,
+    ) -> list[SystemEvent]:
+        if self.event_service is None:
+            return []
+        return self.event_service.build_snapshot_events(previous_snapshot, current_snapshot)

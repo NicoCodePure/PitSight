@@ -3,14 +3,16 @@ import { DriverBottomStrip } from "../components/driver/DriverBottomStrip";
 import { DriverFocusCluster } from "../components/driver/DriverFocusCluster";
 import { TelemetryStateCard } from "../components/driver/TelemetryStateCard";
 import { TimingMetricCard } from "../components/driver/TimingMetricCard";
+import { CameraPanel } from "../components/CameraPanel";
 import { PitEventTimeline } from "../components/pit/PitEventTimeline";
 import type { AppSettingsSnapshot } from "../types/appSettings";
-import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
+import type { AlertEvent, SessionRecord, SystemEvent, TelemetrySnapshot } from "../types/telemetry";
 import { buildPitDashboardViewModel } from "../utils/pitTelemetry";
 
 interface PitDashboardPageProps {
   snapshot: TelemetrySnapshot | null;
   alerts: AlertEvent[];
+  events: SystemEvent[];
   session: SessionRecord | null;
   streamStatus: "connecting" | "connected" | "disconnected";
   settings: AppSettingsSnapshot;
@@ -19,6 +21,7 @@ interface PitDashboardPageProps {
 export function PitDashboardPage({
   snapshot,
   alerts,
+  events,
   session,
   streamStatus,
   settings,
@@ -26,6 +29,7 @@ export function PitDashboardPage({
   const view = buildPitDashboardViewModel({
     snapshot,
     alerts,
+    events,
     session,
     streamStatus,
     displayPreferences: settings.effective.shared.units,
@@ -82,10 +86,7 @@ export function PitDashboardPage({
         <aside className="pit-dashboard-layout__side">
           <section className="pit-side-panel">
             <div className="driver-section__title">Camera</div>
-            <div className={`pit-camera-panel pit-camera-panel--${view.camera.state}`}>
-              <div className="pit-camera-panel__title">{view.camera.title}</div>
-              <div className="pit-camera-panel__detail">{view.camera.detail}</div>
-            </div>
+            <CameraPanel view={view.camera} size="pit" />
           </section>
 
           <section className="pit-side-panel">

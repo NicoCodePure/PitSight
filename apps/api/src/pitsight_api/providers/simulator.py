@@ -7,14 +7,12 @@ import time
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
+from pitsight_api.core.canonical_telemetry import build_snapshot_from_canonical
 from pitsight_api.core.models.telemetry import (
+    CameraState,
     ConnectionState,
-    EngineMetrics,
-    FuelMetrics,
-    GPSMetrics,
-    LapMetrics,
+    GPSFixState,
     ProviderName,
-    SessionMetrics,
     SourceStatus,
     TelemetrySnapshot,
 )
@@ -76,6 +74,7 @@ class SimulatorTelemetryProvider(TelemetryProvider):
         phase = elapsed / 7.5
         speed_kph = max(0.0, 124.0 + 18.0 * math.sin(phase) + self._random.uniform(-4, 4))
         rpm = max(950.0, 2900.0 + speed_kph * 37 + self._random.uniform(-100, 100))
+        gear = self._estimate_gear(speed_kph)
         water_temp_c = 88.0 + 8.5 * abs(math.sin(elapsed / 38.0)) + self._random.uniform(-0.8, 0.8)
         oil_temp_c = 96.0 + 10.5 * abs(math.sin(elapsed / 50.0)) + self._random.uniform(-0.8, 0.8)
         oil_pressure_bar = (
@@ -84,12 +83,23 @@ class SimulatorTelemetryProvider(TelemetryProvider):
             + 0.4 * abs(math.sin(elapsed / 10.0))
             + self._random.uniform(-0.15, 0.15)
         )
+        throttle_position_pct = min(
+            100.0,
+            max(8.0, 48.0 + 34.0 * math.sin(phase + 0.9) + self._random.uniform(-4.0, 4.0)),
+        )
+        battery_voltage_v = 13.8 + 0.18 * math.sin(elapsed / 24.0) + self._random.uniform(-0.05, 0.05)
+        fuel_pressure_bar = 3.35 + 0.18 * math.sin(elapsed / 15.0) + self._random.uniform(-0.04, 0.04)
+        intake_temp_c = 31.0 + 7.5 * abs(math.sin(elapsed / 45.0)) + self._random.uniform(-0.6, 0.6)
+        lambda_value = 0.99 + 0.02 * math.sin(elapsed / 8.0) + self._random.uniform(-0.01, 0.01)
 
         warning_window = 45.0 < (elapsed % 120.0) < 58.0
         if warning_window:
             water_temp_c += 18.0
             oil_temp_c += 12.0
             oil_pressure_bar -= 2.0
+            battery_voltage_v -= 0.6
+            fuel_pressure_bar -= 0.45
+            lambda_value += 0.08
 
         self._fuel_level = max(2.0, self._fuel_level - 0.02)
         lap_progress = current_lap_elapsed / max(current_lap_target, 1.0)
@@ -97,12 +107,18 @@ class SimulatorTelemetryProvider(TelemetryProvider):
         latitude = -26.0246 + 0.0008 * math.cos(gps_angle)
         longitude = 28.0713 + 0.0012 * math.sin(gps_angle)
         gps_speed_kph = max(0.0, speed_kph + self._random.uniform(-2.0, 2.0))
+        lambda_value = max(0.82, lambda_value)
+        afr = max(10.0, lambda_value * 14.7)
+        lap_delta = None
+        if best_lap is not None:
+            projected_best_elapsed = int(best_lap * min(max(lap_progress, 0.0), 1.0))
+            lap_delta = int(current_lap_elapsed * 1000) - projected_best_elapsed
 
-        snapshot = TelemetrySnapshot(
+        snapshot = build_snapshot_from_canonical(
             session_id=self._session_id,
             sequence=self._sequence,
             timestamp=datetime.now(timezone.utc),
-            source=SourceStatus(
+            source_status=SourceStatus(
                 provider=ProviderName.SIMULATOR,
                 transport=self.metadata.transport,
                 protocol=self.metadata.protocol,
@@ -114,34 +130,51 @@ class SimulatorTelemetryProvider(TelemetryProvider):
                     "hz": round(1.0 / self.metadata.poll_interval_seconds, 2),
                 },
             ),
-            lap=LapMetrics(
-                lap_count=lap_count,
-                current_lap_time_ms=int(current_lap_elapsed * 1000),
-                previous_lap_time_ms=previous_lap,
-                best_lap_time_ms=best_lap,
-                optimal_lap_estimate_ms=optimal_lap,
-            ),
-            session=SessionMetrics(
-                session_time_ms=int(elapsed * 1000),
-                drive_time_ms=int(elapsed * 1000),
-                stint_time_ms=int(elapsed * 1000),
-            ),
-            engine=EngineMetrics(
-                speed_kph=round(speed_kph, 1),
-                rpm=round(rpm, 0),
-                water_temp_c=round(water_temp_c, 1),
-                oil_temp_c=round(oil_temp_c, 1),
-                oil_pressure_bar=round(max(0.6, oil_pressure_bar), 2),
-            ),
-            fuel=FuelMetrics(
-                level_percent=round(self._fuel_level, 1),
-                range_km=round(self._fuel_level * 1.8, 1),
-            ),
-            gps=GPSMetrics(
-                latitude=round(latitude, 6),
-                longitude=round(longitude, 6),
-                speed_kph=round(gps_speed_kph, 1),
-            ),
+            metrics={
+                "source_state": ConnectionState.CONNECTED,
+                "lap_count": lap_count,
+                "lap_time": int(current_lap_elapsed * 1000),
+                "previous_lap": previous_lap,
+                "best_lap": best_lap,
+                "optimal_lap_estimate": optimal_lap,
+                "delta": lap_delta,
+                "session_elapsed": int(elapsed * 1000),
+                "drive_time": int(elapsed * 1000),
+                "stint_time": int(elapsed * 1000),
+                "speed": round(speed_kph, 1),
+                "rpm": round(rpm, 0),
+                "gear": gear,
+                "coolant_temp": round(water_temp_c, 1),
+                "oil_temp": round(oil_temp_c, 1),
+                "oil_pressure": round(max(0.6, oil_pressure_bar), 2),
+                "battery_voltage": round(max(10.8, battery_voltage_v), 2),
+                "fuel_pressure": round(max(1.8, fuel_pressure_bar), 2),
+                "fuel_level": round(self._fuel_level, 1),
+                "fuel_range": round(self._fuel_level * 1.8, 1),
+                "lambda": round(lambda_value, 3),
+                "afr": round(afr, 2),
+                "intake_temp": round(intake_temp_c, 1),
+                "throttle_position": round(throttle_position_pct, 1),
+                "gps_latitude": round(latitude, 6),
+                "gps_longitude": round(longitude, 6),
+                "gps_speed": round(gps_speed_kph, 1),
+                "gps_fix_state": GPSFixState.FIX_3D,
+                "camera_state": CameraState.UNAVAILABLE,
+            },
         )
         self._sequence += 1
         return snapshot
+
+    @staticmethod
+    def _estimate_gear(speed_kph: float) -> int:
+        if speed_kph < 25:
+            return 1
+        if speed_kph < 55:
+            return 2
+        if speed_kph < 85:
+            return 3
+        if speed_kph < 120:
+            return 4
+        if speed_kph < 155:
+            return 5
+        return 6

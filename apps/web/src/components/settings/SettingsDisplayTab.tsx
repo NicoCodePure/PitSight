@@ -2,6 +2,7 @@ import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsLiveCard, SettingsSelectField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsDisplayTabProps } from "./SettingsTabTypes";
 import {
+  formatActiveModeSource,
   formatDashboardMode,
   formatSyncStatusBadge,
   getScopeBadges,
@@ -61,8 +62,13 @@ export function SettingsDisplayTab({
           />
           <SettingsLiveCard
             label="Current Active Mode"
-            value={formatDashboardMode(settings.sync.applied_dashboard_mode)}
-            detail={dashboardModeRouteHint(settings.sync.applied_dashboard_mode)}
+            value={formatDashboardMode(settings.device_state.current_dashboard_mode)}
+            detail={`${formatActiveModeSource(settings.device_state.current_dashboard_mode_source)} | ${dashboardModeRouteHint(settings.device_state.current_dashboard_mode)}`}
+          />
+          <SettingsLiveCard
+            label="Last Known Mode"
+            value={formatDashboardMode(settings.device_state.last_known_dashboard_mode)}
+            detail="Last confirmed or reported dashboard mode retained across disconnects."
           />
         </div>
       </SettingsSectionCard>

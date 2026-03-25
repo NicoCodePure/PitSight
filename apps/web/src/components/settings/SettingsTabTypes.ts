@@ -3,7 +3,7 @@ import type {
   AppSettingsUpdate,
   SyncTestControls,
 } from "../../types/appSettings";
-import type { SourceStatus } from "../../types/telemetry";
+import type { CameraMetrics, SourceStatus } from "../../types/telemetry";
 import type { ThresholdFieldErrors, ThresholdFieldName, ThresholdInputState } from "../../utils/settingsForm";
 
 export interface SettingsTabBaseProps {
@@ -95,6 +95,7 @@ export interface SettingsUnitsTabProps extends SettingsTabBaseProps {
 }
 
 export interface SettingsCameraTabProps extends SettingsTabBaseProps {
+  camera?: CameraMetrics | null;
   onSharedRootChange: SharedRootChangeHandler;
   onDeviceCameraChange: DeviceCameraChangeHandler;
 }

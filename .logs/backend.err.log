@@ -167,3 +167,4 @@ starlette.websockets.WebSocketDisconnect
 INFO:     connection closed
 INFO:     127.0.0.1:52725 - "WebSocket /ws/telemetry" [accepted]
 INFO:     connection open
+INFO:     connection closed

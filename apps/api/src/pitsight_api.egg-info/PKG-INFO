@@ -17,6 +17,11 @@ Provides-Extra: obd2
 Requires-Dist: obd<1.0,>=0.7.2; extra == "obd2"
 Provides-Extra: dictator
 Requires-Dist: pyserial<4.0,>=3.5; extra == "dictator"
+Provides-Extra: camera
+Requires-Dist: opencv-python-headless<5.0,>=4.10; extra == "camera"
+Provides-Extra: gps
+Requires-Dist: pynmea2<2.0,>=1.19; extra == "gps"
+Requires-Dist: pyserial<4.0,>=3.5; extra == "gps"
 
 # PitSight API
 
@@ -25,16 +30,44 @@ FastAPI backend for the PitSight MVP.
 ## Current scope
 
 - simulator telemetry provider
+- OBD2 baseline provider via ELM327/python-OBD
 - normalized telemetry schema
 - local REST and WebSocket surface
 - SQLite session and telemetry logging
 - warning engine for oil pressure, water temp, oil temp, and fuel
-- extension points for OBD2 and Dictator integrations
+- Dictator left as an explicit extension point
 
 ## Run
 
 ```powershell
 uv sync --extra dev
+uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+To enable the first camera integration slice:
+
+```powershell
+uv sync --extra dev --extra camera
+uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+To run against a real ELM327-compatible OBD2 adapter:
+
+```powershell
+$env:PITSIGHT_PROVIDER_MODE='obd2'
+# optional when auto-detection is not enough:
+# $env:PITSIGHT_OBD_PORT='COM5'
+uv sync --extra dev --extra obd2
+uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+To enable the first serial GPS integration slice:
+
+```powershell
+$env:PITSIGHT_GPS_ENABLED='true'
+# optional when auto-detection is not enough:
+# $env:PITSIGHT_GPS_PORT='COM7'
+uv sync --extra dev --extra gps
 uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -46,9 +79,12 @@ uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
 - `GET /api/v1/session/current`
 - `GET /api/v1/settings`
 - `PUT /api/v1/settings`
+- `GET /api/v1/gps/status`
+- `GET /api/v1/camera/status`
+- `GET /api/v1/camera/frame.jpg`
+- `GET /api/v1/camera/stream.mjpeg`
 - `WS /ws/telemetry`
 
 ## Stubbed providers
 
-- `obd2`: reserved for future ELM327/python-OBD support
 - `dictator`: reserved for future serial raw capture and decoder work

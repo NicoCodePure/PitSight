@@ -1,5 +1,6 @@
 import type { AppSettingsSnapshot, DisplayPreferences } from "../types/appSettings";
-import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
+import type { AlertEvent, SessionRecord, SystemEvent, TelemetrySnapshot } from "../types/telemetry";
+import { buildCameraPanelView, type CameraPanelView } from "./camera";
 import {
   buildDriverNormalViewModel,
   type DriverAlertView,
@@ -10,18 +11,12 @@ import {
   type TelemetryVisualState,
   type TimingMetricView,
 } from "./lemonsTelemetry";
-import { formatDuration, formatMetric } from "./format";
+import { formatDuration, formatMetric, formatPressure, pressureUnitLabel } from "./format";
 
 export interface PitMetricGroup {
   id: string;
   label: string;
   metrics: TelemetryCardView[];
-}
-
-export interface PitCameraView {
-  title: string;
-  detail: string;
-  state: TelemetryVisualState;
 }
 
 export interface PitRecentEventView {
@@ -41,12 +36,13 @@ export interface PitDashboardViewModel {
   metricGroups: PitMetricGroup[];
   timingMetrics: TimingMetricView[];
   recentEvents: PitRecentEventView[];
-  camera: PitCameraView;
+  camera: CameraPanelView;
 }
 
 interface BuildPitDashboardArgs {
   snapshot: TelemetrySnapshot | null;
   alerts: AlertEvent[];
+  events: SystemEvent[];
   session: SessionRecord | null;
   streamStatus: "connecting" | "connected" | "disconnected";
   displayPreferences: DisplayPreferences;
@@ -101,80 +97,70 @@ function infoCard(
   };
 }
 
-function buildRecentEvents(
-  alerts: AlertEvent[],
+function buildFuelPressureCard(
   snapshot: TelemetrySnapshot | null,
-  streamStatus: "connecting" | "connected" | "disconnected",
-): PitRecentEventView[] {
-  const systemEvents: PitRecentEventView[] = [];
+  displayPreferences: DisplayPreferences,
+  settings: AppSettingsSnapshot,
+): TelemetryCardView {
+  const pressure = snapshot?.fuel.pressure_bar;
+  const thresholds = settings.effective.shared.thresholds;
 
-  if (!snapshot || streamStatus === "disconnected") {
-    systemEvents.push({
-      id: "telemetry-lost",
-      title: "Telemetry Signal Lost",
-      detail: "No live pit-side telemetry snapshot is available.",
-      timestamp: snapshot?.timestamp ?? null,
-      state: "critical",
-    });
-  } else if (streamStatus === "connecting" || snapshot.source.connection_state === "connecting") {
-    systemEvents.push({
-      id: "telemetry-connecting",
-      title: "Telemetry Reconnecting",
-      detail: "Waiting for the live source to stabilize.",
-      timestamp: snapshot.timestamp,
-      state: "advisory",
-    });
-  } else if (snapshot.source.connection_state === "degraded") {
-    systemEvents.push({
-      id: "telemetry-degraded",
-      title: "Telemetry Degraded",
-      detail: "Source is connected but data quality is reduced.",
-      timestamp: snapshot.timestamp,
-      state: "warning",
-    });
+  if (pressure === null || pressure === undefined) {
+    return unavailableCard(
+      "pit-fuel-pressure",
+      "Fuel Pressure",
+      "Feed unavailable",
+      pressureUnitLabel(displayPreferences.pressure_unit),
+    );
   }
 
-  const alertEvents: PitRecentEventView[] = alerts.slice(0, 6).map((alert, index) => ({
-    id: `${alert.code}-${index}`,
-    title: alert.message,
-    detail:
-      alert.value !== null && alert.value !== undefined
-        ? `${alert.code} at ${formatMetric(alert.value, 1)}`
-        : alert.code,
-    timestamp: alert.timestamp,
-    state: alert.severity === "critical" ? "critical" : "warning",
-  }));
+  const state =
+    pressure <= thresholds.fuel_pressure_critical_bar
+      ? "critical"
+      : pressure <= thresholds.fuel_pressure_warning_bar
+        ? "warning"
+        : pressure <= thresholds.fuel_pressure_advisory_bar
+          ? "advisory"
+          : "normal";
 
-  return [...systemEvents, ...alertEvents];
+  const detail =
+    state === "critical" || state === "warning"
+      ? `${formatPressure(pressure, displayPreferences.pressure_unit)} ${pressureUnitLabel(displayPreferences.pressure_unit)} below target`
+      : state === "advisory"
+        ? `Below ${formatPressure(thresholds.fuel_pressure_advisory_bar, displayPreferences.pressure_unit)} ${pressureUnitLabel(displayPreferences.pressure_unit)} advisory floor`
+        : "Fuel rail stable";
+
+  return infoCard(
+    "pit-fuel-pressure",
+    "Fuel Pressure",
+    formatPressure(pressure, displayPreferences.pressure_unit),
+    detail,
+    state,
+    pressureUnitLabel(displayPreferences.pressure_unit),
+  );
 }
 
-function buildCameraView(settings: AppSettingsSnapshot): PitCameraView {
-  if (!settings.device_local.camera.camera_enabled) {
-    return {
-      title: "Camera Disabled",
-      detail: "Enable camera hardware on the Pi to stage pit-side video.",
-      state: "unavailable",
-    };
-  }
-
-  if (!settings.sync.device_online) {
-    return {
-      title: "Device Offline",
-      detail: "Last known camera configuration is saved, but no live camera path is available.",
-      state: "warning",
-    };
-  }
-
-  return {
-    title: "Camera Preview Placeholder",
-    detail: "Camera/video transport is not implemented yet. This panel reserves the pit-side viewing area.",
-    state: "advisory",
-  };
+function buildRecentEvents(
+  events: SystemEvent[],
+): PitRecentEventView[] {
+  return events.slice(0, 8).map((event, index) => ({
+    id: `${event.code}-${event.action}-${index}`,
+    title: event.title,
+    detail: event.detail,
+    timestamp: event.timestamp,
+    state:
+      event.severity === "critical"
+        ? "critical"
+        : event.severity === "warning"
+          ? "warning"
+          : "normal",
+  }));
 }
 
 export function buildPitDashboardViewModel({
   snapshot,
   alerts,
+  events,
   session,
   streamStatus,
   displayPreferences,
@@ -213,7 +199,7 @@ export function buildPitDashboardViewModel({
       label: "Fuel",
       metrics: [
         base.supportMetrics[1],
-        unavailableCard("pit-fuel-pressure", "Fuel Pressure", "Feed unavailable", displayPreferences.pressure_unit),
+        buildFuelPressureCard(snapshot, displayPreferences, settings),
       ],
     },
     {
@@ -261,6 +247,12 @@ export function buildPitDashboardViewModel({
   ];
 
   const topStatuses = [
+    {
+      id: "device",
+      label: "Device",
+      value: settings.device_state.online ? "ONLINE" : "OFFLINE",
+      state: settings.device_state.online ? "normal" : "critical",
+    } satisfies StatusBadgeView,
     ...base.topStatuses,
     {
       id: "session",
@@ -286,6 +278,12 @@ export function buildPitDashboardViewModel({
       label: "Applied",
       value: settings.sync.applied_dashboard_mode.replace(/_/g, " ").toUpperCase(),
     },
+    {
+      id: "active-screen",
+      label: "Screen",
+      value: settings.device_state.current_dashboard_mode.replace(/_/g, " ").toUpperCase(),
+      state: settings.device_state.online ? "normal" : "warning",
+    },
     ...base.footerItems.filter((item) => item.id !== "mode"),
   ];
 
@@ -297,7 +295,12 @@ export function buildPitDashboardViewModel({
     footerItems,
     metricGroups,
     timingMetrics: base.timingMetrics,
-    recentEvents: buildRecentEvents(alerts, snapshot, streamStatus),
-    camera: buildCameraView(settings),
+    recentEvents: buildRecentEvents(events),
+    camera: buildCameraPanelView({
+      camera: snapshot?.camera,
+      deviceOnline: settings.device_state.online,
+      requestedMode: settings.effective.shared.camera_mode_preference,
+      hardwareSource: settings.effective.device_local.camera.camera_hardware_source,
+    }),
   };
 }

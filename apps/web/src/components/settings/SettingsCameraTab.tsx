@@ -1,19 +1,23 @@
+import { CameraPanel } from "../CameraPanel";
 import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsSelectField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsCameraTabProps } from "./SettingsTabTypes";
+import { buildCameraPanelView } from "../../utils/camera";
 import { getScopeBadges } from "../../utils/settingsSync";
 
 export function SettingsCameraTab({
   settings,
   draft,
+  camera,
   onSharedRootChange,
   onDeviceCameraChange,
 }: SettingsCameraTabProps) {
-  const previewState = !draft.device_local.camera.camera_enabled
-    ? "Camera disabled"
-    : !settings.sync.device_online
-      ? "Device offline"
-      : "Preview placeholder";
+  const preview = buildCameraPanelView({
+    camera,
+    deviceOnline: settings.device_state.online,
+    requestedMode: settings.effective.shared.camera_mode_preference,
+    hardwareSource: settings.effective.device_local.camera.camera_hardware_source,
+  });
 
   return (
     <div className="settings-tab-panels settings-tab-panels--camera">
@@ -25,7 +29,7 @@ export function SettingsCameraTab({
         <div className="settings-grid">
           <SettingsToggleField
             label="Camera Enabled"
-            helper="Master enable for in-car capture once camera support lands."
+            helper="Master enable for Pi-side capture and streaming."
             checked={draft.device_local.camera.camera_enabled}
             onChange={(value) => onDeviceCameraChange("camera_enabled", value)}
           />
@@ -57,21 +61,24 @@ export function SettingsCameraTab({
 
       <SettingsSectionCard
         title="Preview / Status"
-        description="Video is not implemented yet, but the placeholder state stays explicit so operators can distinguish disabled, offline, and unavailable states."
+        description="This preview uses the live backend camera path. States stay explicit so disabled, loading, no-signal, unavailable, and offline behavior are easy to validate."
         badges={[
           ...getScopeBadges("device", settings),
-          { label: previewState, tone: draft.device_local.camera.camera_enabled ? "warning" : "unavailable" },
+          {
+            label: preview.title,
+            tone:
+              preview.state === "live"
+                ? "normal"
+                : preview.state === "loading" || preview.state === "no_signal"
+                  ? "warning"
+                  : preview.state === "fault" || preview.state === "offline"
+                    ? "critical"
+                    : "unavailable",
+          },
         ]}
       >
         <div className="settings-camera-preview">
-          <div className="settings-camera-preview__frame">
-            <div className="settings-camera-preview__status">{previewState}</div>
-            <div className="settings-camera-preview__detail">
-              {draft.device_local.camera.camera_enabled
-                ? "Preview/test feed placeholder until the camera pipeline is implemented."
-                : "Enable camera support to stage video-related settings."}
-            </div>
-          </div>
+          <CameraPanel view={preview} size="settings" />
         </div>
       </SettingsSectionCard>
     </div>

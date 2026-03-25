@@ -2,12 +2,15 @@ import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsNumberField, SettingsSelectField, SettingsToggleField } from "./SettingsControls";
 import type { SettingsSystemTabProps } from "./SettingsTabTypes";
 import {
+  formatActiveModeSource,
   formatDashboardMode,
+  formatDeviceHealth,
+  formatProviderRuntime,
   formatRelativeSyncStatus,
   formatSyncStatusBadge,
   getScopeBadges,
 } from "../../utils/settingsSync";
-import { titleCase } from "../../utils/format";
+import { formatTimestamp, titleCase } from "../../utils/format";
 
 export function SettingsSystemTab({
   settings,
@@ -26,6 +29,7 @@ export function SettingsSystemTab({
         description="Last reported device identity and peripheral inventory from the Pi side."
         badges={[
           formatRelativeSyncStatus(settings),
+          formatDeviceHealth(settings.device_state.connection_health_summary),
           {
             label: settings.sync.device_online ? "Online" : "Offline",
             tone: settings.sync.device_online ? "normal" : "unavailable",
@@ -44,6 +48,18 @@ export function SettingsSystemTab({
           <div className="settings-meta__row">
             <dt>Software Version</dt>
             <dd>{settings.device_state.software_version}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Hostname</dt>
+            <dd>{settings.device_state.hostname}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Platform</dt>
+            <dd>{settings.device_state.platform}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Last Seen</dt>
+            <dd>{settings.device_state.last_seen_at ? formatTimestamp(settings.device_state.last_seen_at) : "--"}</dd>
           </div>
           <div className="settings-meta__row">
             <dt>Peripherals</dt>
@@ -87,6 +103,13 @@ export function SettingsSystemTab({
             <dd>{formatDashboardMode(settings.sync.applied_dashboard_mode)}</dd>
           </div>
           <div className="settings-meta__row">
+            <dt>Current Active Mode</dt>
+            <dd>
+              {formatDashboardMode(settings.device_state.current_dashboard_mode)} (
+              {formatActiveModeSource(settings.device_state.current_dashboard_mode_source)})
+            </dd>
+          </div>
+          <div className="settings-meta__row">
             <dt>Pending Shared Changes</dt>
             <dd>{settings.sync.pending_shared_changes ? "Yes" : "No"}</dd>
           </div>
@@ -105,6 +128,22 @@ export function SettingsSystemTab({
           <div className="settings-meta__row">
             <dt>Display Mode Sync</dt>
             <dd>{titleCase(settings.sync.display_mode_sync_state)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Connection Health</dt>
+            <dd>{titleCase(settings.device_state.connection_health_summary)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Active Source</dt>
+            <dd>{formatProviderRuntime(settings.device_state.active_source_provider)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Source Connection</dt>
+            <dd>
+              {settings.device_state.source_connection_state
+                ? titleCase(settings.device_state.source_connection_state)
+                : "--"}
+            </dd>
           </div>
         </dl>
       </SettingsSectionCard>

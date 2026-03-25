@@ -12,12 +12,16 @@ src/pitsight_api.egg-info/top_level.txt
 src/pitsight_api/api/__init__.py
 src/pitsight_api/api/deps.py
 src/pitsight_api/api/routes/__init__.py
+src/pitsight_api/api/routes/camera.py
+src/pitsight_api/api/routes/device.py
+src/pitsight_api/api/routes/gps.py
 src/pitsight_api/api/routes/health.py
 src/pitsight_api/api/routes/session.py
 src/pitsight_api/api/routes/settings.py
 src/pitsight_api/api/routes/stream.py
 src/pitsight_api/api/routes/telemetry.py
 src/pitsight_api/core/__init__.py
+src/pitsight_api/core/canonical_telemetry.py
 src/pitsight_api/core/models/__init__.py
 src/pitsight_api/core/models/app_settings.py
 src/pitsight_api/core/models/session.py
@@ -26,6 +30,7 @@ src/pitsight_api/protocol/__init__.py
 src/pitsight_api/protocol/base.py
 src/pitsight_api/protocol/dictator.py
 src/pitsight_api/protocol/elm327.py
+src/pitsight_api/protocol/nmea.py
 src/pitsight_api/providers/__init__.py
 src/pitsight_api/providers/base.py
 src/pitsight_api/providers/dictator.py
@@ -33,6 +38,9 @@ src/pitsight_api/providers/factory.py
 src/pitsight_api/providers/obd2.py
 src/pitsight_api/providers/simulator.py
 src/pitsight_api/services/__init__.py
+src/pitsight_api/services/camera_service.py
+src/pitsight_api/services/device_runtime_service.py
+src/pitsight_api/services/gps_service.py
 src/pitsight_api/services/session_service.py
 src/pitsight_api/services/settings_service.py
 src/pitsight_api/services/telemetry_service.py
@@ -42,4 +50,9 @@ src/pitsight_api/storage/repository.py
 src/pitsight_api/transport/__init__.py
 src/pitsight_api/transport/base.py
 src/pitsight_api/transport/serial.py
+tests/test_camera_service.py
+tests/test_canonical_telemetry.py
+tests/test_device_runtime_service.py
+tests/test_gps_service.py
+tests/test_obd2_provider.py
 tests/test_settings_service.py

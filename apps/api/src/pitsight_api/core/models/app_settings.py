@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from pitsight_api.core.models.telemetry import ProviderName
+from pitsight_api.core.models.telemetry import ConnectionState, ProviderName
 
 
 def _coerce_mapping(value: Any) -> dict[str, Any]:
@@ -93,6 +93,19 @@ class SyncState(str, Enum):
     DEVICE_OFFLINE = "device_offline"
     LOCAL_DEVICE_SETTING = "local_device_setting"
     AWAITING_APPLY_CONFIRMATION = "awaiting_apply_confirmation"
+
+
+class DeviceConnectionHealth(str, Enum):
+    NOMINAL = "nominal"
+    DEGRADED = "degraded"
+    FAULT = "fault"
+    OFFLINE = "offline"
+
+
+class ActiveDashboardModeSource(str, Enum):
+    REPORTED = "reported"
+    APPLIED_DEFAULT = "applied_default"
+    LAST_KNOWN = "last_known"
 
 
 class AlertThresholdSettings(BaseModel):
@@ -227,11 +240,33 @@ class DeviceStateSnapshot(BaseModel):
     device_id: str = "pitsight-pi-sim-01"
     device_label: str = "PitSight Pi Simulator"
     software_version: str = "0.1.0"
+    hostname: str = "localhost"
+    platform: str = "simulator"
+    heartbeat_interval_seconds: int = 5
+    heartbeat_timeout_seconds: int = 15
+    last_seen_at: datetime | None = None
     last_known_dashboard_mode: DashboardMode = DashboardMode.DRIVER_NORMAL
+    current_dashboard_mode: DashboardMode = DashboardMode.DRIVER_NORMAL
+    current_dashboard_mode_source: ActiveDashboardModeSource = ActiveDashboardModeSource.APPLIED_DEFAULT
+    active_source_provider: ProviderName | None = None
+    source_connection_state: ConnectionState | None = None
+    source_connected: bool = False
+    connection_health_summary: DeviceConnectionHealth = DeviceConnectionHealth.OFFLINE
+    online: bool = False
     last_sync_at: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc))
     connected_peripherals: list[str] = Field(
         default_factory=lambda: ["simulator feed", "loopback websocket"]
     )
+
+
+class DeviceHeartbeatReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_dashboard_mode: DashboardMode | None = None
+    active_source_provider: ProviderName | None = None
+    source_connection_state: ConnectionState | None = None
+    source_connected: bool | None = None
+    connected_peripherals: list[str] | None = None
 
 
 class SettingsSyncSnapshot(BaseModel):
@@ -383,6 +418,10 @@ class AppSettingsSnapshot(AppSettingsUpdate):
             "last_known_dashboard_mode",
             applied_dashboard_mode,
         )
+        current_dashboard_mode = raw_device_state.get(
+            "current_dashboard_mode",
+            last_known_dashboard_mode,
+        )
 
         return {
             **candidate,
@@ -392,7 +431,13 @@ class AppSettingsSnapshot(AppSettingsUpdate):
             "device_state": {
                 **DeviceStateSnapshot().model_dump(mode="json"),
                 **raw_device_state,
+                "last_seen_at": raw_device_state.get("last_seen_at"),
                 "last_known_dashboard_mode": last_known_dashboard_mode,
+                "current_dashboard_mode": current_dashboard_mode,
+                "current_dashboard_mode_source": raw_device_state.get(
+                    "current_dashboard_mode_source",
+                    ActiveDashboardModeSource.LAST_KNOWN.value,
+                ),
                 "last_sync_at": raw_device_state.get("last_sync_at", updated_at),
             },
             "sync": {

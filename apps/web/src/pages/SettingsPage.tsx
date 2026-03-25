@@ -10,7 +10,7 @@ import { SettingsUnitsTab } from "../components/settings/SettingsUnitsTab";
 import { SettingsVehicleTab } from "../components/settings/SettingsVehicleTab";
 import { DEFAULT_APP_SETTINGS } from "../types/appSettings";
 import type { AppSettingsSnapshot, AppSettingsUpdate } from "../types/appSettings";
-import type { SourceStatus } from "../types/telemetry";
+import type { CameraMetrics, SourceStatus } from "../types/telemetry";
 import { formatTimestamp, titleCase } from "../utils/format";
 import {
   buildThresholdInputState,
@@ -32,6 +32,7 @@ interface SettingsPageProps {
   onUpdateSyncTestControls: (payload: AppSettingsSnapshot["sync_test"]) => Promise<void>;
   onApplyPendingToDevice: () => Promise<void>;
   source?: SourceStatus | null;
+  camera?: CameraMetrics | null;
   streamStatus: "connecting" | "connected" | "disconnected";
 }
 
@@ -82,6 +83,7 @@ export function SettingsPage({
   onUpdateSyncTestControls,
   onApplyPendingToDevice,
   source,
+  camera,
   streamStatus,
 }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("connections");
@@ -378,6 +380,7 @@ export function SettingsPage({
           <SettingsCameraTab
             settings={settings}
             draft={draft}
+            camera={camera}
             onSharedRootChange={updateSharedRoot}
             onDeviceCameraChange={updateDeviceCamera}
           />

@@ -1,7 +1,9 @@
-import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
+import type { AlertEvent, SessionRecord, SystemEvent, TelemetrySnapshot } from "../types/telemetry";
 import type {
   AppSettingsSnapshot,
   AppSettingsUpdate,
+  DeviceHeartbeatReport,
+  DeviceStateSnapshot,
   SyncTestControls,
 } from "../types/appSettings";
 
@@ -17,6 +19,13 @@ function buildWebSocketUrl(path: string): string {
   url.pathname = path;
   url.search = "";
   return url.toString();
+}
+
+export function resolveApiMediaUrl(path: string | null | undefined): string | null {
+  if (!path) {
+    return null;
+  }
+  return new URL(path, apiBaseUrl).toString();
 }
 
 function extractErrorDetail(payload: unknown): string | null {
@@ -77,6 +86,14 @@ export async function fetchRecentAlerts(limit = 20): Promise<AlertEvent[]> {
   return response.json();
 }
 
+export async function fetchRecentEvents(limit = 20): Promise<SystemEvent[]> {
+  const response = await fetch(buildUrl(`/api/v1/events/recent?limit=${limit}`));
+  if (!response.ok) {
+    throw await buildResponseError(response, "Failed to fetch recent events.");
+  }
+  return response.json();
+}
+
 export async function fetchCurrentSession(): Promise<SessionRecord | null> {
   const response = await fetch(buildUrl("/api/v1/session/current"));
   if (!response.ok) {
@@ -89,6 +106,14 @@ export async function fetchAppSettings(): Promise<AppSettingsSnapshot> {
   const response = await fetch(buildUrl("/api/v1/settings"));
   if (!response.ok) {
     throw await buildResponseError(response, "Failed to fetch app settings.");
+  }
+  return response.json();
+}
+
+export async function fetchDeviceRuntime(): Promise<DeviceStateSnapshot> {
+  const response = await fetch(buildUrl("/api/v1/device/runtime"));
+  if (!response.ok) {
+    throw await buildResponseError(response, "Failed to fetch device runtime.");
   }
   return response.json();
 }
@@ -137,6 +162,22 @@ export async function applyPendingSettingsToDevice(): Promise<AppSettingsSnapsho
   });
   if (!response.ok) {
     throw await buildResponseError(response, "Failed to apply pending device settings.");
+  }
+  return response.json();
+}
+
+export async function postDeviceRuntimeHeartbeat(
+  payload: DeviceHeartbeatReport,
+): Promise<DeviceStateSnapshot> {
+  const response = await fetch(buildUrl("/api/v1/device/runtime/heartbeat"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw await buildResponseError(response, "Failed to report device runtime heartbeat.");
   }
   return response.json();
 }

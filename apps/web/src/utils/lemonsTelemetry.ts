@@ -121,9 +121,9 @@ const SEVERITY_PRIORITY: Record<Exclude<TelemetryVisualState, "normal">, number>
 
 function getHighMetricState(
   value: number | null | undefined,
+  advisoryThreshold: number,
   warningThreshold: number,
   criticalThreshold: number,
-  advisoryFactor = 0.92,
 ): TelemetryVisualState {
   if (value === null || value === undefined) {
     return "unavailable";
@@ -134,7 +134,7 @@ function getHighMetricState(
   if (value >= warningThreshold) {
     return "warning";
   }
-  if (value >= warningThreshold * advisoryFactor) {
+  if (value >= advisoryThreshold) {
     return "advisory";
   }
   return "normal";
@@ -142,9 +142,9 @@ function getHighMetricState(
 
 function getLowMetricState(
   value: number | null | undefined,
+  advisoryThreshold: number,
   warningThreshold: number,
   criticalThreshold: number,
-  advisoryFactor = 1.18,
 ): TelemetryVisualState {
   if (value === null || value === undefined) {
     return "unavailable";
@@ -155,7 +155,7 @@ function getLowMetricState(
   if (value <= warningThreshold) {
     return "warning";
   }
-  if (value <= warningThreshold * advisoryFactor) {
+  if (value <= advisoryThreshold) {
     return "advisory";
   }
   return "normal";
@@ -221,7 +221,23 @@ function getShiftLightCount(value: number | null | undefined): number {
 }
 
 function getTrueSpeed(snapshot: TelemetrySnapshot | null): number | null {
-  return snapshot?.gps.speed_kph ?? snapshot?.engine.speed_kph ?? null;
+  if (snapshot?.engine.speed_kph !== null && snapshot?.engine.speed_kph !== undefined) {
+    return snapshot.engine.speed_kph;
+  }
+  if (snapshot?.gps.speed_kph !== null && snapshot?.gps.speed_kph !== undefined) {
+    return snapshot.gps.speed_kph;
+  }
+  return null;
+}
+
+function getSpeedSourceDetail(snapshot: TelemetrySnapshot | null): string {
+  if (snapshot?.engine.speed_kph !== null && snapshot?.engine.speed_kph !== undefined) {
+    return "Vehicle speed";
+  }
+  if (snapshot?.gps.speed_kph !== null && snapshot?.gps.speed_kph !== undefined) {
+    return "GPS fallback";
+  }
+  return "Speed feed missing";
 }
 
 function formatPressureThreshold(value: number, displayPreferences: DisplayPreferences): string {
@@ -234,6 +250,14 @@ function formatTemperatureThreshold(value: number, displayPreferences: DisplayPr
   return `${formatTemperature(value, displayPreferences.temperature_unit)} ${temperatureUnitLabel(
     displayPreferences.temperature_unit,
   )}`;
+}
+
+function formatSignedDuration(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "+/-";
+  return `${sign}${formatDuration(Math.abs(value))}`;
 }
 
 function formatProviderShortName(snapshot: TelemetrySnapshot | null): string {
@@ -273,15 +297,16 @@ function buildOilPressureDetail(
   }
 
   if (state === "advisory") {
-    return `Near ${formatPressureThreshold(thresholds.oil_pressure_warning_bar, displayPreferences)} floor`;
+    return `Below ${formatPressureThreshold(thresholds.oil_pressure_advisory_bar, displayPreferences)} advisory floor`;
   }
 
-  return `Warn floor ${formatPressureThreshold(thresholds.oil_pressure_warning_bar, displayPreferences)}`;
+  return `Advisory floor ${formatPressureThreshold(thresholds.oil_pressure_advisory_bar, displayPreferences)}`;
 }
 
 function buildTemperatureDetail(
   state: TelemetryVisualState,
   value: number | null | undefined,
+  advisoryThreshold: number,
   warningThreshold: number,
   criticalThreshold: number,
   displayPreferences: DisplayPreferences,
@@ -301,10 +326,10 @@ function buildTemperatureDetail(
   }
 
   if (state === "advisory") {
-    return `Near ${formatTemperatureThreshold(warningThreshold, displayPreferences)} limit`;
+    return `Above ${formatTemperatureThreshold(advisoryThreshold, displayPreferences)} advisory band`;
   }
 
-  return `Warn at ${formatTemperatureThreshold(warningThreshold, displayPreferences)}`;
+  return `Advisory at ${formatTemperatureThreshold(advisoryThreshold, displayPreferences)}`;
 }
 
 function buildFuelDetail(
@@ -326,6 +351,69 @@ function buildFuelDetail(
     return `${formatMetric(rangeKm, 0)} km range`;
   }
   return "Fuel stable";
+}
+
+function buildBatteryDetail(
+  state: TelemetryVisualState,
+  value: number | null | undefined,
+  thresholds: AlertThresholdSettings,
+): string {
+  if (state === "unavailable") {
+    return "Feed unavailable";
+  }
+  if (state === "critical" || state === "warning") {
+    return `${formatMetric(value, 1)} V below ${formatMetric(thresholds.battery_voltage_warning_v, 1)} V`;
+  }
+  if (state === "advisory") {
+    return `Near ${formatMetric(thresholds.battery_voltage_advisory_v, 1)} V floor`;
+  }
+  return "Charging stable";
+}
+
+function getLambdaState(
+  value: number | null | undefined,
+  thresholds: AlertThresholdSettings,
+): TelemetryVisualState {
+  if (value === null || value === undefined) {
+    return "unavailable";
+  }
+  const delta = Math.abs(value - 1.0);
+  if (delta >= thresholds.lambda_critical_delta) {
+    return "critical";
+  }
+  if (delta >= thresholds.lambda_warning_delta) {
+    return "warning";
+  }
+  if (delta >= thresholds.lambda_advisory_delta) {
+    return "advisory";
+  }
+  return "normal";
+}
+
+function buildLambdaDetail(
+  state: TelemetryVisualState,
+  lambdaValue: number | null | undefined,
+  afrValue: number | null | undefined,
+  thresholds: AlertThresholdSettings,
+): string {
+  if (state === "unavailable") {
+    return "Feed unavailable";
+  }
+  const afrDetail =
+    afrValue === null || afrValue === undefined ? null : `AFR ${formatMetric(afrValue, 1)}`;
+  const delta = lambdaValue === null || lambdaValue === undefined ? null : Math.abs(lambdaValue - 1.0);
+
+  if (state === "critical" || state === "warning") {
+    const threshold =
+      state === "critical" ? thresholds.lambda_critical_delta : thresholds.lambda_warning_delta;
+    return `${afrDetail ?? `Delta ${formatMetric(delta, 2)}`} beyond ${formatMetric(threshold, 2)}`;
+  }
+
+  if (state === "advisory") {
+    return `Near lambda delta ${formatMetric(thresholds.lambda_advisory_delta, 2)}`;
+  }
+
+  return afrDetail ?? "Mixture stable";
 }
 
 function buildSignalDetail(
@@ -625,26 +713,22 @@ function buildFocus(
 ): FocusClusterView {
   const trueSpeed = getTrueSpeed(snapshot);
   const rpm = snapshot?.engine.rpm ?? null;
+  const gear = snapshot?.engine.gear ?? null;
   const rpmState = getRpmState(rpm);
 
   return {
     gear: {
       label: "Gear",
-      value: "--",
-      state: "unavailable",
-      detail: "No gear data",
+      value: gear === null ? "--" : gear === 0 ? "N" : String(gear),
+      state: gear === null ? "unavailable" : "normal",
+      detail: gear === null ? "No gear data" : "Decoded gear",
     },
     speed: {
       label: "Speed",
       value: formatSpeed(trueSpeed, displayPreferences.speed_unit),
       unit: speedUnitLabel(displayPreferences.speed_unit),
       state: trueSpeed === null ? "unavailable" : "normal",
-      detail:
-        trueSpeed === null
-          ? "Speed feed missing"
-          : snapshot?.gps.speed_kph !== null && snapshot?.gps.speed_kph !== undefined
-            ? "GPS speed"
-            : "Vehicle speed",
+      detail: getSpeedSourceDetail(snapshot),
     },
     rpm: {
       label: "RPM",
@@ -675,16 +759,19 @@ function buildEngineMetrics(
   const rpm = snapshot?.engine.rpm ?? null;
   const oilPressureState = getLowMetricState(
     snapshot?.engine.oil_pressure_bar,
+    thresholds.oil_pressure_advisory_bar,
     thresholds.oil_pressure_warning_bar,
     thresholds.oil_pressure_critical_bar,
   );
   const oilTempState = getHighMetricState(
     snapshot?.engine.oil_temp_c,
+    thresholds.oil_temp_advisory_c,
     thresholds.oil_temp_warning_c,
     thresholds.oil_temp_critical_c,
   );
   const coolantState = getHighMetricState(
     snapshot?.engine.water_temp_c,
+    thresholds.water_temp_advisory_c,
     thresholds.water_temp_warning_c,
     thresholds.water_temp_critical_c,
   );
@@ -699,6 +786,7 @@ function buildEngineMetrics(
       detail: buildTemperatureDetail(
         oilTempState,
         snapshot?.engine.oil_temp_c,
+        thresholds.oil_temp_advisory_c,
         thresholds.oil_temp_warning_c,
         thresholds.oil_temp_critical_c,
         displayPreferences,
@@ -727,6 +815,7 @@ function buildEngineMetrics(
       detail: buildTemperatureDetail(
         coolantState,
         snapshot?.engine.water_temp_c,
+        thresholds.water_temp_advisory_c,
         thresholds.water_temp_warning_c,
         thresholds.water_temp_critical_c,
         displayPreferences,
@@ -743,14 +832,22 @@ function buildSupportMetrics(
 ): TelemetryCardView[] {
   const signalState = getSignalState(snapshot, streamStatus);
   const fuelState = getFuelState(snapshot?.fuel.level_percent, thresholds.fuel_level_warning_percent);
+  const batteryState = getLowMetricState(
+    snapshot?.engine.battery_voltage_v,
+    thresholds.battery_voltage_advisory_v,
+    thresholds.battery_voltage_warning_v,
+    thresholds.battery_voltage_critical_v,
+  );
+  const lambdaState = getLambdaState(snapshot?.engine.lambda_value, thresholds);
 
   return [
     {
       id: "battery",
       label: "Battery",
-      value: "--",
-      state: "unavailable",
-      detail: "Feed unavailable",
+      value: formatMetric(snapshot?.engine.battery_voltage_v, 1),
+      unit: "V",
+      state: batteryState,
+      detail: buildBatteryDetail(batteryState, snapshot?.engine.battery_voltage_v, thresholds),
     },
     {
       id: "fuel-level",
@@ -768,9 +865,21 @@ function buildSupportMetrics(
     {
       id: "lambda",
       label: "Lambda / AFR",
-      value: "--",
-      state: "unavailable",
-      detail: "Feed unavailable",
+      value:
+        snapshot?.engine.lambda_value === null || snapshot?.engine.lambda_value === undefined
+          ? formatMetric(snapshot?.engine.afr, 1)
+          : formatMetric(snapshot?.engine.lambda_value, 2),
+      unit:
+        snapshot?.engine.lambda_value === null || snapshot?.engine.lambda_value === undefined
+          ? "afr"
+          : "lambda",
+      state: lambdaState,
+      detail: buildLambdaDetail(
+        lambdaState,
+        snapshot?.engine.lambda_value,
+        snapshot?.engine.afr,
+        thresholds,
+      ),
     },
     {
       id: "signal",
@@ -904,9 +1013,21 @@ export function buildDriverNormalViewModel(args: BuildDriverScreenArgs): DriverN
       {
         id: "delta",
         label: "Delta",
-        value: "--",
-        state: "unavailable",
-        detail: "Not in current feed",
+        value: formatSignedDuration(args.snapshot?.lap.delta_ms),
+        state:
+          args.snapshot?.lap.delta_ms === null || args.snapshot?.lap.delta_ms === undefined
+            ? "unavailable"
+            : args.snapshot.lap.delta_ms > 1500
+              ? "warning"
+              : args.snapshot.lap.delta_ms > 0
+                ? "advisory"
+                : "normal",
+        detail:
+          args.snapshot?.lap.delta_ms === null || args.snapshot?.lap.delta_ms === undefined
+            ? "No reference lap yet"
+            : args.snapshot.lap.delta_ms > 0
+              ? "Behind best lap"
+              : "Ahead of best lap",
         emphasis: "secondary",
       },
       {

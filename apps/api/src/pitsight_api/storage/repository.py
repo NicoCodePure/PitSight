@@ -4,6 +4,7 @@ from pathlib import Path
 
 import aiosqlite
 
+from pitsight_api.core.models.event import SystemEvent
 from pitsight_api.core.models.app_settings import AppSettingsSnapshot
 from pitsight_api.core.models.session import SessionRecord
 from pitsight_api.core.models.telemetry import AlertEvent, TelemetrySnapshot
@@ -56,6 +57,21 @@ class SQLiteRepository:
             CREATE INDEX IF NOT EXISTS idx_alerts_timestamp
             ON alerts (timestamp DESC);
 
+            CREATE TABLE IF NOT EXISTS system_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                timestamp TEXT NOT NULL,
+                category TEXT NOT NULL,
+                code TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                title TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_system_events_timestamp
+            ON system_events (timestamp DESC);
+
             CREATE TABLE IF NOT EXISTS app_settings (
                 singleton_key INTEGER PRIMARY KEY CHECK (singleton_key = 1),
                 updated_at TEXT NOT NULL,
@@ -83,6 +99,33 @@ class SQLiteRepository:
                 session.started_at.isoformat(),
                 session.ended_at.isoformat() if session.ended_at else None,
             ),
+        )
+        await connection.commit()
+
+    async def store_system_events(self, events: list[SystemEvent]) -> None:
+        if not events:
+            return
+        connection = self._require_connection()
+        await connection.executemany(
+            """
+            INSERT INTO system_events (
+                session_id, timestamp, category, code, severity, title, detail, payload_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    event.session_id,
+                    event.timestamp.isoformat(),
+                    event.category.value,
+                    event.code,
+                    event.severity.value,
+                    event.title,
+                    event.detail,
+                    event.model_dump_json(),
+                )
+                for event in events
+            ],
         )
         await connection.commit()
 
@@ -179,6 +222,20 @@ class SQLiteRepository:
         )
         rows = await cursor.fetchall()
         return [AlertEvent.model_validate(dict(row)) for row in rows]
+
+    async def fetch_recent_system_events(self, limit: int = 20) -> list[SystemEvent]:
+        connection = self._require_connection()
+        cursor = await connection.execute(
+            """
+            SELECT payload_json
+            FROM system_events
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = await cursor.fetchall()
+        return [SystemEvent.model_validate_json(row["payload_json"]) for row in rows]
 
     async def fetch_app_settings(self) -> AppSettingsSnapshot | None:
         connection = self._require_connection()

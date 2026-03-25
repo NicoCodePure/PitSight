@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { useAppSettings } from "./hooks/useAppSettings";
+import { useDeviceRuntimeHeartbeat } from "./hooks/useDeviceRuntimeHeartbeat";
 import { useTelemetryStream } from "./hooks/useTelemetryStream";
 import type { AppSettingsSnapshot, DashboardMode } from "./types/appSettings";
 import { DriverLemonsPage } from "./pages/DriverLemonsPage";
@@ -25,6 +26,19 @@ function getDashboardRoute(settings: AppSettingsSnapshot): string {
       return "/driver/normal";
     case "pit_dashboard":
       return "/pit";
+  }
+}
+
+function getRouteDashboardMode(pathname: string): DashboardMode | null {
+  switch (pathname) {
+    case "/driver/normal":
+      return "driver_normal";
+    case "/driver/lemons":
+      return "driver_lemons";
+    case "/pit":
+      return "pit_dashboard";
+    default:
+      return null;
   }
 }
 
@@ -54,6 +68,13 @@ export default function App() {
   const telemetry = useTelemetryStream();
   const appSettings = useAppSettings();
   const showModeNav = !location.pathname.startsWith("/driver/");
+  const activeDashboardMode = getRouteDashboardMode(location.pathname);
+
+  useDeviceRuntimeHeartbeat({
+    activeDashboardMode,
+    snapshot: telemetry.snapshot,
+    search: location.search,
+  });
 
   return (
     <div className="app-shell">
@@ -116,6 +137,7 @@ export default function App() {
               onUpdateSyncTestControls={appSettings.updateSyncTestControls}
               onApplyPendingToDevice={appSettings.applyPendingToDevice}
               source={telemetry.snapshot?.source ?? null}
+              camera={telemetry.snapshot?.camera ?? null}
               streamStatus={telemetry.streamStatus}
             />
           }

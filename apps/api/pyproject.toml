@@ -28,6 +28,13 @@ obd2 = [
 dictator = [
   "pyserial>=3.5,<4.0"
 ]
+camera = [
+  "opencv-python-headless>=4.10,<5.0"
+]
+gps = [
+  "pynmea2>=1.19,<2.0",
+  "pyserial>=3.5,<4.0"
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -38,4 +45,3 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-

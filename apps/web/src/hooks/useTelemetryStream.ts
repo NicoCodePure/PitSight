@@ -2,17 +2,19 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   fetchCurrentSession,
+  fetchRecentEvents,
   fetchLatestTelemetry,
   fetchRecentAlerts,
   openTelemetrySocket,
 } from "../api/client";
-import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
+import type { AlertEvent, SessionRecord, SystemEvent, TelemetrySnapshot } from "../types/telemetry";
 
 type StreamStatus = "connecting" | "connected" | "disconnected";
 
 interface TelemetryState {
   snapshot: TelemetrySnapshot | null;
   alerts: AlertEvent[];
+  events: SystemEvent[];
   session: SessionRecord | null;
   streamStatus: StreamStatus;
 }
@@ -20,6 +22,7 @@ interface TelemetryState {
 export function useTelemetryStream(): TelemetryState {
   const [snapshot, setSnapshot] = useState<TelemetrySnapshot | null>(null);
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
+  const [events, setEvents] = useState<SystemEvent[]>([]);
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const reconnectTimerRef = useRef<number | null>(null);
@@ -32,9 +35,10 @@ export function useTelemetryStream(): TelemetryState {
     let socket: WebSocket | null = null;
 
     const refreshFromRest = async () => {
-      const [initialSnapshot, initialAlerts, currentSession] = await Promise.allSettled([
+      const [initialSnapshot, initialAlerts, initialEvents, currentSession] = await Promise.allSettled([
         fetchLatestTelemetry(),
         fetchRecentAlerts(),
+        fetchRecentEvents(),
         fetchCurrentSession(),
       ]);
 
@@ -50,6 +54,10 @@ export function useTelemetryStream(): TelemetryState {
         setAlerts(initialAlerts.value);
       }
 
+      if (initialEvents.status === "fulfilled") {
+        setEvents(initialEvents.value);
+      }
+
       if (currentSession.status === "fulfilled") {
         setSession(currentSession.value);
       }
@@ -57,6 +65,7 @@ export function useTelemetryStream(): TelemetryState {
       if (
         initialSnapshot.status === "rejected" &&
         initialAlerts.status === "rejected" &&
+        initialEvents.status === "rejected" &&
         currentSession.status === "rejected"
       ) {
         setStreamStatus("disconnected");
@@ -158,6 +167,7 @@ export function useTelemetryStream(): TelemetryState {
   return {
     snapshot,
     alerts,
+    events,
     session,
     streamStatus,
   };

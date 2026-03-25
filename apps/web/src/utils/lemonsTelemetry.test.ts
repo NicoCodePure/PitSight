@@ -9,7 +9,7 @@ const DISPLAY = DEFAULT_APP_SETTINGS.shared.units;
 
 function buildSnapshot(overrides?: Partial<TelemetrySnapshot>): TelemetrySnapshot {
   return {
-    schema_version: "0.1.0",
+    schema_version: "0.2.0",
     session_id: "simulator-123",
     sequence: 12,
     timestamp: "2026-03-18T21:00:00.000Z",
@@ -30,6 +30,7 @@ function buildSnapshot(overrides?: Partial<TelemetrySnapshot>): TelemetrySnapsho
       previous_lap_time_ms: 80500,
       best_lap_time_ms: 79999,
       optimal_lap_estimate_ms: 79000,
+      delta_ms: -420,
     },
     session: {
       session_time_ms: 180000,
@@ -39,18 +40,30 @@ function buildSnapshot(overrides?: Partial<TelemetrySnapshot>): TelemetrySnapsho
     engine: {
       speed_kph: 118,
       rpm: 5600,
+      gear: 4,
       water_temp_c: 98,
       oil_temp_c: 109,
       oil_pressure_bar: 3.2,
+      battery_voltage_v: 13.8,
+      lambda_value: 1.01,
+      afr: 14.8,
+      intake_temp_c: 34,
+      throttle_position_pct: 58,
     },
     fuel: {
       level_percent: 48,
       range_km: 80,
+      pressure_bar: 3.4,
     },
     gps: {
       latitude: -26.0246,
       longitude: 28.0713,
       speed_kph: 121,
+      fix_state: "3d",
+    },
+    camera: {
+      state: "unavailable",
+      stream_url: null,
     },
     alerts: [],
     health_state: "nominal",
@@ -73,10 +86,88 @@ describe("buildDriverLemonsViewModel", () => {
     });
 
     expect(view.alerts).toHaveLength(0);
-    expect(view.focus.speed.value).toBe("121");
+    expect(view.focus.speed.value).toBe("118");
+    expect(view.focus.speed.detail).toBe("Vehicle speed");
     expect(view.engineMetrics[1].state).toBe("normal");
     expect(view.supportMetrics[1].state).toBe("normal");
     expect(view.summary).toBe("SIM live. Core telemetry stable.");
+  });
+
+  it("uses vehicle speed when GPS speed is unavailable", () => {
+    const view = buildDriverLemonsViewModel({
+      snapshot: buildSnapshot({
+        source: {
+          provider: "obd2",
+          transport: "COM5",
+          protocol: "elm327",
+          connection_state: "connected",
+          connected: true,
+          raw_capture_enabled: false,
+          details: {
+            obd_status: "CAR_CONNECTED",
+          },
+        },
+        engine: {
+          speed_kph: 96,
+          rpm: 3100,
+          gear: null,
+          water_temp_c: 88,
+          oil_temp_c: null,
+          oil_pressure_bar: null,
+          battery_voltage_v: 13.7,
+          lambda_value: null,
+          afr: null,
+          intake_temp_c: 31,
+          throttle_position_pct: 24,
+        },
+        gps: {
+          latitude: null,
+          longitude: null,
+          speed_kph: null,
+          fix_state: null,
+        },
+      }),
+      session: null,
+      streamStatus: "connected",
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
+    });
+
+    expect(view.focus.speed.value).toBe("96");
+    expect(view.focus.speed.detail).toBe("Vehicle speed");
+  });
+
+  it("uses GPS speed only as a fallback when vehicle speed is unavailable", () => {
+    const view = buildDriverLemonsViewModel({
+      snapshot: buildSnapshot({
+        engine: {
+          speed_kph: null,
+          rpm: 4020,
+          gear: 3,
+          water_temp_c: 91,
+          oil_temp_c: 102,
+          oil_pressure_bar: 3.1,
+          battery_voltage_v: 13.6,
+          lambda_value: 1,
+          afr: 14.7,
+          intake_temp_c: 29,
+          throttle_position_pct: 37,
+        },
+        gps: {
+          latitude: -26.0246,
+          longitude: 28.0713,
+          speed_kph: 104,
+          fix_state: "3d",
+        },
+      }),
+      session: null,
+      streamStatus: "connected",
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
+    });
+
+    expect(view.focus.speed.value).toBe("104");
+    expect(view.focus.speed.detail).toBe("GPS fallback");
   });
 
   it("elevates oil pressure alerts to the top warning strip", () => {
@@ -85,9 +176,15 @@ describe("buildDriverLemonsViewModel", () => {
         engine: {
           speed_kph: 88,
           rpm: 4200,
+          gear: 3,
           water_temp_c: 96,
           oil_temp_c: 101,
           oil_pressure_bar: 0.92,
+          battery_voltage_v: 13.4,
+          lambda_value: 0.99,
+          afr: 14.5,
+          intake_temp_c: 33,
+          throttle_position_pct: 41,
         },
         alerts: [
           {
@@ -131,14 +228,25 @@ describe("buildDriverLemonsViewModel", () => {
         engine: {
           speed_kph: null,
           rpm: null,
+          gear: null,
           water_temp_c: null,
           oil_temp_c: null,
           oil_pressure_bar: null,
+          battery_voltage_v: null,
+          lambda_value: null,
+          afr: null,
+          intake_temp_c: null,
+          throttle_position_pct: null,
         },
         gps: {
           latitude: null,
           longitude: null,
           speed_kph: null,
+          fix_state: null,
+        },
+        camera: {
+          state: null,
+          stream_url: null,
         },
       }),
       session: null,
@@ -171,7 +279,7 @@ describe("buildDriverNormalViewModel", () => {
     expect(view.focus.rpm.detail).toBe("Shift soon");
     expect(view.timingMetrics[0]?.label).toBe("Current Lap");
     expect(view.timingMetrics[0]?.emphasis).toBe("primary");
-    expect(view.timingMetrics[2]?.value).toBe("--");
+    expect(view.timingMetrics[2]?.value).toBe("-00:00.420");
     expect(view.footerItems.some((item) => item.id === "lap")).toBe(false);
   });
 
@@ -184,6 +292,7 @@ describe("buildDriverNormalViewModel", () => {
           previous_lap_time_ms: null,
           best_lap_time_ms: null,
           optimal_lap_estimate_ms: null,
+          delta_ms: null,
         },
         session: {
           session_time_ms: null,

@@ -1,9 +1,11 @@
 import type { AlertThresholdSettings, DisplayPreferences } from "../types/appSettings";
 import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
+import { CameraPanel } from "../components/CameraPanel";
 import { DriverBottomStrip } from "../components/driver/DriverBottomStrip";
 import { DriverFocusCluster } from "../components/driver/DriverFocusCluster";
 import { DriverTopStrip } from "../components/driver/DriverTopStrip";
 import { TelemetryStateCard } from "../components/driver/TelemetryStateCard";
+import { buildCameraPanelView } from "../utils/camera";
 import { buildDriverLemonsViewModel } from "../utils/lemonsTelemetry";
 
 interface DriverLemonsPageProps {
@@ -30,6 +32,7 @@ export function DriverLemonsPage({
     thresholds,
     displayPreferences,
   });
+  const cameraView = buildCameraPanelView({ camera: snapshot?.camera });
 
   return (
     <main className="screen screen--driver screen--driver-theme">
@@ -58,6 +61,8 @@ export function DriverLemonsPage({
           {view.supportMetrics.map((metric) => (
             <TelemetryStateCard key={metric.id} metric={metric} />
           ))}
+          <div className="driver-section__title driver-section__title--subtle">Camera</div>
+          <CameraPanel view={cameraView} size="driver" />
         </aside>
       </section>
 
