@@ -94,7 +94,10 @@ export interface DriverScreenViewModelBase {
 export interface DriverLemonsViewModel {
   topStatuses: StatusBadgeView[];
   alerts: DriverAlertView[];
-  metrics: TelemetryCardView[];
+  focus: FocusClusterView;
+  lapMetric: TelemetryCardView;
+  engineMetrics: TelemetryCardView[];
+  secondaryMetrics: TelemetryCardView[];
   summary: string;
 }
 
@@ -420,6 +423,16 @@ function buildLambdaDetail(
   return `${afrDetail ?? `Lambda ${formatMetric(lambdaValue, 2)}`} Diagnostic only. No backend alert configured.`;
 }
 
+function buildAfrDetail(
+  state: TelemetryVisualState,
+  afrValue: number | null | undefined,
+): string {
+  if (state === "unavailable") {
+    return "Feed unavailable";
+  }
+  return `AFR ${formatMetric(afrValue, 1)} Diagnostic only. No backend alert configured.`;
+}
+
 function buildSignalDetail(
   state: TelemetryVisualState,
   snapshot: TelemetrySnapshot | null,
@@ -672,6 +685,12 @@ function buildLemonsSystemAlerts(
       title: "SPEED SIGNAL UNAVAILABLE",
       source: "Speed",
     },
+    {
+      id: "rpm-signal",
+      value: snapshot.engine.rpm,
+      title: "RPM SIGNAL UNAVAILABLE",
+      source: "RPM",
+    },
   ];
 
   for (const sensor of essentialSensors) {
@@ -776,15 +795,8 @@ function getSummary(alerts: DriverAlertView[], snapshot: TelemetrySnapshot | nul
 }
 
 function getLemonsSummary(alerts: DriverAlertView[], snapshot: TelemetrySnapshot | null): string {
-  const alertSummary = getSummary(alerts, snapshot);
-
   if (alerts.length > 0 || !snapshot) {
-    return alertSummary;
-  }
-
-  const capabilities = getCapabilities(snapshot);
-  if (capabilities.lap_timing.level !== "full") {
-    return `${formatProviderShortName(snapshot)} live. Lap count unavailable for this source.`;
+    return getSummary(alerts, snapshot);
   }
 
   return `${formatProviderShortName(snapshot)} live. Engine survival metrics stable.`;
@@ -843,6 +855,7 @@ function buildTopStatuses(
 function buildLemonsTopStatuses(
   snapshot: TelemetrySnapshot | null,
   streamStatus: "connecting" | "connected" | "disconnected",
+  systemHealthState: TelemetryVisualState,
 ): StatusBadgeView[] {
   const source = formatProviderShortName(snapshot);
   const signalState = getSignalState(snapshot, streamStatus);
@@ -866,6 +879,12 @@ function buildLemonsTopStatuses(
               ? "CONNECTING"
               : "DOWN",
       state: signalState,
+    },
+    {
+      id: "system",
+      label: "System",
+      value: STATE_LABELS[systemHealthState].toUpperCase(),
+      state: systemHealthState,
     },
   ];
 }
@@ -1062,81 +1081,71 @@ function buildSupportMetrics(
   ];
 }
 
-function buildLemonsMetrics(
+function buildLemonsLapMetric(snapshot: TelemetrySnapshot | null): TelemetryCardView {
+  const capabilities = getCapabilities(snapshot);
+  const lapTimingState = getCapabilityVisualState(capabilities.lap_timing);
+  const lapTimingAvailable = capabilities.lap_timing.level === "full";
+
+  return {
+    id: "lap-count",
+    label: "Lap Count",
+    value: lapTimingAvailable ? formatMetric(snapshot?.lap.lap_count, 0) : "--",
+    state: !lapTimingAvailable
+      ? lapTimingState
+      : snapshot?.lap.lap_count === null || snapshot?.lap.lap_count === undefined
+        ? "unavailable"
+        : "normal",
+    detail:
+      !lapTimingAvailable
+        ? capabilities.lap_timing.detail
+        : snapshot?.lap.lap_count === null || snapshot?.lap.lap_count === undefined
+          ? "Lap count unavailable"
+          : "Completed laps",
+  };
+}
+
+function buildLemonsSecondaryMetrics(
   snapshot: TelemetrySnapshot | null,
   thresholds: AlertThresholdSettings,
-  displayPreferences: DisplayPreferences,
 ): TelemetryCardView[] {
-  const trueSpeed = getTrueSpeed(snapshot);
-  const rpm = snapshot?.engine.rpm ?? null;
-  const oilPressureState = getAlertBackedMetricState(
+  const fuelState = getAlertBackedMetricState(
     snapshot,
-    snapshot?.engine.oil_pressure_bar,
-    ["low_oil_pressure_critical"],
-    ["low_oil_pressure_warning"],
+    snapshot?.fuel.level_percent,
+    [],
+    ["low_fuel_warning"],
   );
-  const coolantState = getAlertBackedMetricState(
-    snapshot,
-    snapshot?.engine.water_temp_c,
-    ["high_water_temp_critical"],
-    ["high_water_temp_warning"],
-  );
-  const capabilities = getCapabilities(snapshot);
-  const lapTimingAvailable = capabilities.lap_timing.level === "full";
-  const lapState = !lapTimingAvailable
-    ? getCapabilityVisualState(capabilities.lap_timing)
-    : snapshot?.lap.lap_count === null || snapshot?.lap.lap_count === undefined
-      ? "unavailable"
-      : "normal";
+  const batteryState = getDiagnosticMetricState(snapshot?.engine.battery_voltage_v);
+  const afrState = getDiagnosticMetricState(snapshot?.engine.afr);
 
   return [
     {
-      id: "speed",
-      label: "True Speed",
-      value: formatSpeed(trueSpeed, displayPreferences.speed_unit),
-      unit: speedUnitLabel(displayPreferences.speed_unit),
-      state: trueSpeed === null ? "unavailable" : "normal",
-      detail: getSpeedSourceDetail(snapshot),
-    },
-    {
-      id: "lap-count",
-      label: "Lap Count",
-      value: lapTimingAvailable ? formatMetric(snapshot?.lap.lap_count, 0) : "--",
-      state: lapState,
-      detail:
-        !lapTimingAvailable
-          ? capabilities.lap_timing.detail
-          : snapshot?.lap.lap_count === null || snapshot?.lap.lap_count === undefined
-            ? "Lap count unavailable"
-            : "Completed laps",
-    },
-    {
-      id: "oil-pressure",
-      label: "Oil Pressure",
-      value: formatPressure(snapshot?.engine.oil_pressure_bar, displayPreferences.pressure_unit),
-      unit: pressureUnitLabel(displayPreferences.pressure_unit),
-      state: oilPressureState,
-      detail: buildOilPressureDetail(
-        oilPressureState,
-        snapshot?.engine.oil_pressure_bar,
-        rpm,
+      id: "fuel-level",
+      label: "Fuel Level",
+      value: formatMetric(snapshot?.fuel.level_percent, 1),
+      unit: "%",
+      state: fuelState,
+      detail: buildFuelDetail(
+        fuelState,
+        snapshot?.fuel.level_percent,
+        snapshot?.fuel.range_km,
         thresholds,
-        displayPreferences,
       ),
     },
     {
-      id: "coolant-temp",
-      label: "Coolant Temp",
-      value: formatTemperature(snapshot?.engine.water_temp_c, displayPreferences.temperature_unit),
-      unit: temperatureUnitLabel(displayPreferences.temperature_unit),
-      state: coolantState,
-      detail: buildTemperatureDetail(
-        coolantState,
-        snapshot?.engine.water_temp_c,
-        thresholds.water_temp_warning_c,
-        thresholds.water_temp_critical_c,
-        displayPreferences,
-      ),
+      id: "battery",
+      label: "Battery",
+      value: formatMetric(snapshot?.engine.battery_voltage_v, 1),
+      unit: "V",
+      state: batteryState,
+      detail: buildBatteryDetail(batteryState, snapshot?.engine.battery_voltage_v),
+    },
+    {
+      id: "afr",
+      label: "AFR",
+      value: formatMetric(snapshot?.engine.afr, 1),
+      unit: "afr",
+      state: afrState,
+      detail: buildAfrDetail(afrState, snapshot?.engine.afr),
     },
   ];
 }
@@ -1220,11 +1229,15 @@ export function buildDriverLemonsViewModel(args: BuildDriverScreenArgs): DriverL
     ...buildBackendAlerts(args.snapshot, args.thresholds, args.displayPreferences),
     ...buildLemonsSystemAlerts(args.snapshot, args.streamStatus),
   ]);
+  const systemHealthState = getSystemHealthState(alerts);
 
   return {
-    topStatuses: buildLemonsTopStatuses(args.snapshot, args.streamStatus),
+    topStatuses: buildLemonsTopStatuses(args.snapshot, args.streamStatus, systemHealthState),
     alerts,
-    metrics: buildLemonsMetrics(args.snapshot, args.thresholds, args.displayPreferences),
+    focus: buildFocus(args.snapshot, args.displayPreferences),
+    lapMetric: buildLemonsLapMetric(args.snapshot),
+    engineMetrics: buildEngineMetrics(args.snapshot, args.thresholds, args.displayPreferences),
+    secondaryMetrics: buildLemonsSecondaryMetrics(args.snapshot, args.thresholds),
     summary: getLemonsSummary(alerts, args.snapshot),
   };
 }

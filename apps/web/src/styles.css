@@ -1330,10 +1330,8 @@ a {
   min-height: 0;
 }
 
-.driver-lemons-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+.driver-layout--lemons-focused {
+  grid-template-columns: minmax(220px, 0.92fr) minmax(0, 1.58fr) minmax(220px, 0.92fr);
 }
 
 .driver-layout--lemons {
@@ -1821,8 +1819,8 @@ a {
     grid-template-columns: minmax(150px, 0.86fr) minmax(0, 1.46fr) minmax(180px, 0.98fr);
   }
 
-  .driver-lemons-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .driver-layout--lemons-focused {
+    grid-template-columns: minmax(180px, 0.84fr) minmax(0, 1.3fr) minmax(180px, 0.84fr);
   }
 
   .driver-timing-grid {
@@ -1898,7 +1896,6 @@ a {
   }
 
   .driver-status-badges,
-  .driver-lemons-grid,
   .driver-bottom-strip__items,
   .driver-focus-cluster__shell,
   .driver-timing-grid,

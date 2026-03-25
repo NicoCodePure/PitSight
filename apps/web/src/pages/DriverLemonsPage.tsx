@@ -1,6 +1,7 @@
 import type { AlertThresholdSettings, DisplayPreferences } from "../types/appSettings";
 import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
-import { DriverAlertStrip } from "../components/driver/DriverAlertStrip";
+import { DriverFocusCluster } from "../components/driver/DriverFocusCluster";
+import { DriverTopStrip } from "../components/driver/DriverTopStrip";
 import { TelemetryStateCard } from "../components/driver/TelemetryStateCard";
 import { buildDriverLemonsViewModel } from "../utils/lemonsTelemetry";
 
@@ -31,34 +32,35 @@ export function DriverLemonsPage({
 
   return (
     <main className="screen screen--driver screen--driver-theme">
-      <section className="driver-top-strip">
-        <div className="driver-top-strip__status">
-          <div>
-            <p className="screen__eyebrow">PitSight</p>
-            <h1 className="screen__title screen__title--lemons">Driver Lemons</h1>
+      <DriverTopStrip
+        title="Driver Lemons"
+        statuses={view.topStatuses}
+        focus={view.focus}
+        alerts={view.alerts}
+        summary={view.summary}
+      />
+
+      <section className="driver-layout driver-layout--lemons-focused" aria-label="Driver Lemons approved telemetry">
+        <aside className="driver-column">
+          <div className="driver-section__title">Engine Survival</div>
+          {view.engineMetrics.map((metric) => (
+            <TelemetryStateCard key={metric.id} metric={metric} />
+          ))}
+        </aside>
+
+        <section className="driver-main-panel">
+          <DriverFocusCluster focus={view.focus} />
+          <div className="driver-section">
+            <TelemetryStateCard metric={view.lapMetric} />
           </div>
+        </section>
 
-          <div className="driver-status-badges">
-            {view.topStatuses.map((status) => (
-              <article key={status.id} className={`driver-status-badge driver-status-badge--${status.state}`}>
-                <span className="driver-status-badge__label">{status.label}</span>
-                <span className="driver-status-badge__value">{status.value}</span>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <DriverAlertStrip
-          alerts={view.alerts}
-          clearTitle="ENGINE STATUS CLEAR"
-          clearDetail={view.summary}
-        />
-      </section>
-
-      <section className="driver-lemons-grid" aria-label="Driver Lemons approved telemetry">
-        {view.metrics.map((metric) => (
-          <TelemetryStateCard key={metric.id} metric={metric} />
-        ))}
+        <aside className="driver-column">
+          <div className="driver-section__title">Aux Gauges</div>
+          {view.secondaryMetrics.map((metric) => (
+            <TelemetryStateCard key={metric.id} metric={metric} />
+          ))}
+        </aside>
       </section>
     </main>
   );

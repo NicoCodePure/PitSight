@@ -86,17 +86,34 @@ describe("buildDriverLemonsViewModel", () => {
     });
 
     expect(view.alerts).toHaveLength(0);
-    expect(view.topStatuses.map((status) => status.id)).toEqual(["source", "link"]);
-    expect(view.metrics.map((metric) => metric.id)).toEqual([
-      "speed",
-      "lap-count",
+    expect(view.topStatuses.map((status) => status.id)).toEqual(["source", "link", "system"]);
+    expect(Object.keys(view).sort()).toEqual([
+      "alerts",
+      "engineMetrics",
+      "focus",
+      "lapMetric",
+      "secondaryMetrics",
+      "summary",
+      "topStatuses",
+    ]);
+    expect(view.focus.speed.value).toBe("118");
+    expect(view.focus.speed.detail).toBe("Vehicle speed");
+    expect(view.focus.gear.value).toBe("4");
+    expect(view.focus.rpm.value).toBe("5600");
+    expect(view.lapMetric.id).toBe("lap-count");
+    expect(view.lapMetric.value).toBe("4");
+    expect(view.engineMetrics.map((metric) => metric.id)).toEqual([
+      "oil-temp",
       "oil-pressure",
       "coolant-temp",
     ]);
-    expect(view.metrics[0]?.value).toBe("118");
-    expect(view.metrics[0]?.detail).toBe("Vehicle speed");
-    expect(view.metrics[2]?.state).toBe("normal");
-    expect(view.metrics[1]?.state).toBe("normal");
+    expect(view.secondaryMetrics.map((metric) => metric.id)).toEqual([
+      "fuel-level",
+      "battery",
+      "afr",
+    ]);
+    expect(view.engineMetrics[1]?.state).toBe("normal");
+    expect(view.secondaryMetrics[0]?.state).toBe("normal");
     expect(view.summary).toBe("SIM live. Engine survival metrics stable.");
   });
 
@@ -140,8 +157,8 @@ describe("buildDriverLemonsViewModel", () => {
       displayPreferences: DISPLAY,
     });
 
-    expect(view.metrics[0]?.value).toBe("96");
-    expect(view.metrics[0]?.detail).toBe("Vehicle speed");
+    expect(view.focus.speed.value).toBe("96");
+    expect(view.focus.speed.detail).toBe("Vehicle speed");
   });
 
   it("uses GPS speed only as a fallback when vehicle speed is unavailable", () => {
@@ -173,8 +190,8 @@ describe("buildDriverLemonsViewModel", () => {
       displayPreferences: DISPLAY,
     });
 
-    expect(view.metrics[0]?.value).toBe("104");
-    expect(view.metrics[0]?.detail).toBe("GPS fallback");
+    expect(view.focus.speed.value).toBe("104");
+    expect(view.focus.speed.detail).toBe("GPS fallback");
   });
 
   it("elevates oil pressure alerts to the top warning strip", () => {
@@ -212,11 +229,11 @@ describe("buildDriverLemonsViewModel", () => {
 
     expect(view.alerts[0]?.title).toBe("OIL PRESSURE CRITICAL");
     expect(view.alerts[0]?.detail).toContain("4200 RPM");
-    expect(view.metrics[2]?.state).toBe("critical");
+    expect(view.engineMetrics[1]?.state).toBe("critical");
     expect(view.summary).toBe("1 critical active");
   });
 
-  it("keeps the lemons builder limited to approved telemetry only", () => {
+  it("keeps the lemons builder limited to the focused driver dash composition", () => {
     const view = buildDriverLemonsViewModel({
       snapshot: buildSnapshot({
         engine: {
@@ -245,17 +262,29 @@ describe("buildDriverLemonsViewModel", () => {
       displayPreferences: DISPLAY,
     });
 
-    expect(Object.keys(view).sort()).toEqual(["alerts", "metrics", "summary", "topStatuses"]);
-    expect(view.metrics.map((metric) => metric.id)).toEqual([
-      "speed",
-      "lap-count",
+    expect(Object.keys(view).sort()).toEqual([
+      "alerts",
+      "engineMetrics",
+      "focus",
+      "lapMetric",
+      "secondaryMetrics",
+      "summary",
+      "topStatuses",
+    ]);
+    expect(view.engineMetrics.map((metric) => metric.id)).toEqual([
+      "oil-temp",
       "oil-pressure",
       "coolant-temp",
     ]);
-    expect(view.topStatuses.map((status) => status.id)).toEqual(["source", "link"]);
+    expect(view.secondaryMetrics.map((metric) => metric.id)).toEqual([
+      "fuel-level",
+      "battery",
+      "afr",
+    ]);
+    expect(view.topStatuses.map((status) => status.id)).toEqual(["source", "link", "system"]);
   });
 
-  it("keeps lap count truthful when lap logic is unavailable", () => {
+  it("does not leak lap-session capability content into the focused lemons dash", () => {
     const view = buildDriverLemonsViewModel({
       snapshot: buildSnapshot({
         source: {
@@ -302,10 +331,12 @@ describe("buildDriverLemonsViewModel", () => {
       displayPreferences: DISPLAY,
     });
 
-    expect(view.metrics[1]?.value).toBe("--");
-    expect(view.metrics[1]?.state).toBe("unavailable");
-    expect(view.metrics[1]?.detail).toContain("Lap timing is not available");
-    expect(view.summary).toBe("DICTATOR live. Lap count unavailable for this source.");
+    expect(view.focus.speed.value).toBe("96");
+    expect(view.engineMetrics[0]?.label).toBe("Oil Temp");
+    expect(view.lapMetric.value).toBe("--");
+    expect(view.lapMetric.state).toBe("unavailable");
+    expect(view.lapMetric.detail).toContain("Lap timing is not available");
+    expect(view.summary).toBe("DICTATOR live. Engine survival metrics stable.");
   });
 
   it("raises signal lost when no snapshot is available", () => {
@@ -319,7 +350,9 @@ describe("buildDriverLemonsViewModel", () => {
 
     expect(view.alerts[0]?.title).toBe("TELEMETRY SIGNAL LOST");
     expect(view.topStatuses.find((status) => status.id === "link")?.value).toBe("DOWN");
-    expect(view.metrics[0]?.value).toBe("--");
+    expect(view.focus.speed.value).toBe("--");
+    expect(view.focus.rpm.value).toBe("--");
+    expect(view.lapMetric.value).toBe("--");
   });
 
   it("marks missing core sensors as unavailable without showing zero values", () => {
@@ -352,6 +385,11 @@ describe("buildDriverLemonsViewModel", () => {
           speed_kph: null,
           fix_state: null,
         },
+        fuel: {
+          level_percent: null,
+          range_km: null,
+          pressure_bar: null,
+        },
         camera: {
           state: null,
           stream_url: null,
@@ -364,7 +402,12 @@ describe("buildDriverLemonsViewModel", () => {
     });
 
     expect(view.alerts.some((alert) => alert.title === "OIL TEMP SENSOR UNAVAILABLE")).toBe(true);
-    expect(view.metrics.every((metric) => metric.value === "--")).toBe(true);
+    expect(view.focus.speed.value).toBe("--");
+    expect(view.focus.rpm.value).toBe("--");
+    expect(view.focus.gear.value).toBe("--");
+    expect(view.lapMetric.value).toBe("--");
+    expect(view.engineMetrics.every((metric) => metric.value === "--")).toBe(true);
+    expect(view.secondaryMetrics.every((metric) => metric.value === "--")).toBe(true);
   });
 });
 
