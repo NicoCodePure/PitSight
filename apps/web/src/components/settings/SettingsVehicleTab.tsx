@@ -1,7 +1,13 @@
 import { SettingsSectionCard } from "./SettingsSectionCard";
 import { SettingsSelectField, SettingsTextField } from "./SettingsControls";
 import type { SettingsVehicleTabProps } from "./SettingsTabTypes";
-import { formatProviderPreference, getScopeBadges } from "../../utils/settingsSync";
+import {
+  formatProviderPreference,
+  formatProviderRuntime,
+  formatProviderSelectionBadge,
+  formatProviderSelectionState,
+  getScopeBadges,
+} from "../../utils/settingsSync";
 import { titleCase } from "../../utils/format";
 
 export function SettingsVehicleTab({
@@ -12,18 +18,26 @@ export function SettingsVehicleTab({
   onVehicleChange,
 }: SettingsVehicleTabProps) {
   const sourceState = source?.connection_state ? titleCase(source.connection_state) : "Unavailable";
+  const providerRuntime = settings.provider_runtime;
 
   return (
     <div className="settings-tab-panels">
       <SettingsSectionCard
         title="Telemetry Source Preference"
-        description="This is a shared preference. When the Pi is connected, the server-side preference wins for supported shared source modes."
-        badges={getScopeBadges("shared", settings)}
+        description="Telemetry provider selection is explicit at backend startup. Save a new preferred source at any time, but a backend or Pi restart is required before the running provider actually changes."
+        badges={[
+          ...getScopeBadges("shared", settings),
+          formatProviderSelectionBadge(providerRuntime),
+          {
+            label: providerRuntime.restart_required ? "Restart Needed" : "No Restart Needed",
+            tone: providerRuntime.restart_required ? "warning" : "normal",
+          },
+        ]}
       >
         <div className="settings-grid settings-grid--single">
           <SettingsSelectField
             label="Telemetry Source"
-            helper="Simulator and OBD2 are available baseline source paths today. Runtime provider selection still follows backend startup configuration."
+            helper="This saves the requested provider for the next backend start. Live provider switching is intentionally not performed in this build."
             value={draft.shared.telemetry_source_preference}
             onChange={(value) => onSharedRootChange("telemetry_source_preference", value as typeof draft.shared.telemetry_source_preference)}
             options={[
@@ -36,18 +50,32 @@ export function SettingsVehicleTab({
 
         <dl className="settings-meta">
           <div className="settings-meta__row">
-            <dt>Preferred Source</dt>
+            <dt>Requested Source</dt>
             <dd>{formatProviderPreference(draft.shared.telemetry_source_preference)}</dd>
           </div>
           <div className="settings-meta__row">
-            <dt>Live Provider</dt>
-            <dd>{source?.provider ? formatProviderPreference(source.provider) : "Unavailable"}</dd>
+            <dt>Boot Provider</dt>
+            <dd>{formatProviderPreference(providerRuntime.boot_provider)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Active Provider</dt>
+            <dd>{formatProviderRuntime(settings.device_state.active_source_provider)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Selection State</dt>
+            <dd>{formatProviderSelectionState(providerRuntime.selection_state)}</dd>
           </div>
           <div className="settings-meta__row">
             <dt>Connection</dt>
             <dd>{sourceState}</dd>
           </div>
+          <div className="settings-meta__row">
+            <dt>Restart Required</dt>
+            <dd>{providerRuntime.restart_required ? "Yes" : "No"}</dd>
+          </div>
         </dl>
+
+        <div className="settings-note">{providerRuntime.detail}</div>
       </SettingsSectionCard>
 
       <SettingsSectionCard
@@ -94,7 +122,7 @@ export function SettingsVehicleTab({
         </div>
 
         <div className="settings-note">
-          OBD2 uses the current backend provider path when started in OBD2 mode. Dictator USB now has a baseline provider path, while Dictator wireless remains a future slice.
+          Simulator remains the safe development/demo provider. OBD2 and Dictator are configured by startup mode, then report connected, degraded, disconnected, or fault state through live source status. Dictator wireless remains a future slice.
         </div>
       </SettingsSectionCard>
     </div>

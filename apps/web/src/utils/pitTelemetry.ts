@@ -100,10 +100,8 @@ function infoCard(
 function buildFuelPressureCard(
   snapshot: TelemetrySnapshot | null,
   displayPreferences: DisplayPreferences,
-  settings: AppSettingsSnapshot,
 ): TelemetryCardView {
   const pressure = snapshot?.fuel.pressure_bar;
-  const thresholds = settings.effective.shared.thresholds;
 
   if (pressure === null || pressure === undefined) {
     return unavailableCard(
@@ -114,28 +112,12 @@ function buildFuelPressureCard(
     );
   }
 
-  const state =
-    pressure <= thresholds.fuel_pressure_critical_bar
-      ? "critical"
-      : pressure <= thresholds.fuel_pressure_warning_bar
-        ? "warning"
-        : pressure <= thresholds.fuel_pressure_advisory_bar
-          ? "advisory"
-          : "normal";
-
-  const detail =
-    state === "critical" || state === "warning"
-      ? `${formatPressure(pressure, displayPreferences.pressure_unit)} ${pressureUnitLabel(displayPreferences.pressure_unit)} below target`
-      : state === "advisory"
-        ? `Below ${formatPressure(thresholds.fuel_pressure_advisory_bar, displayPreferences.pressure_unit)} ${pressureUnitLabel(displayPreferences.pressure_unit)} advisory floor`
-        : "Fuel rail stable";
-
   return infoCard(
     "pit-fuel-pressure",
     "Fuel Pressure",
     formatPressure(pressure, displayPreferences.pressure_unit),
-    detail,
-    state,
+    `${formatPressure(pressure, displayPreferences.pressure_unit)} ${pressureUnitLabel(displayPreferences.pressure_unit)} Diagnostic only. No backend alert configured.`,
+    "normal",
     pressureUnitLabel(displayPreferences.pressure_unit),
   );
 }
@@ -173,6 +155,21 @@ export function buildPitDashboardViewModel({
     thresholds: settings.effective.shared.thresholds,
     displayPreferences,
   });
+  const sessionClockSupport = snapshot?.capabilities?.session_clock ?? {
+    level: snapshot?.source.provider === "simulator" ? "full" : snapshot ? "limited" : "unavailable",
+    detail:
+      snapshot?.source.provider === "simulator"
+        ? "Simulator provides session, drive, and stint clocks."
+        : snapshot
+          ? "Elapsed session, drive, and stint clocks are available, but they are not track-aware or lap-aware."
+          : "Session-clock support has not been declared for this snapshot.",
+  };
+  const sessionClockState =
+    sessionClockSupport.level === "full"
+      ? "normal"
+      : sessionClockSupport.level === "limited"
+        ? "advisory"
+        : "unavailable";
 
   const metricGroups: PitMetricGroup[] = [
     {
@@ -199,7 +196,7 @@ export function buildPitDashboardViewModel({
       label: "Fuel",
       metrics: [
         base.supportMetrics[1],
-        buildFuelPressureCard(snapshot, displayPreferences, settings),
+        buildFuelPressureCard(snapshot, displayPreferences),
       ],
     },
     {
@@ -232,15 +229,23 @@ export function buildPitDashboardViewModel({
           "pit-drive-time",
           "Drive Time",
           formatDuration(snapshot?.session.drive_time_ms),
-          snapshot?.session.drive_time_ms == null ? "Session clock unavailable" : "Current drive duration",
-          snapshot?.session.drive_time_ms == null ? "unavailable" : "normal",
+          snapshot?.session.drive_time_ms == null
+            ? sessionClockSupport.detail
+            : sessionClockSupport.level === "full"
+              ? "Current drive duration"
+              : sessionClockSupport.detail,
+          snapshot?.session.drive_time_ms == null ? "unavailable" : sessionClockState,
         ),
         infoCard(
           "pit-stint-time",
           "Stint Time",
           formatDuration(snapshot?.session.stint_time_ms),
-          snapshot?.session.stint_time_ms == null ? "Stint timer unavailable" : "Current stint duration",
-          snapshot?.session.stint_time_ms == null ? "unavailable" : "normal",
+          snapshot?.session.stint_time_ms == null
+            ? sessionClockSupport.detail
+            : sessionClockSupport.level === "full"
+              ? "Current stint duration"
+              : sessionClockSupport.detail,
+          snapshot?.session.stint_time_ms == null ? "unavailable" : sessionClockState,
         ),
       ],
     },

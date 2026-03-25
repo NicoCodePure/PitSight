@@ -13,11 +13,33 @@ FastAPI backend for the PitSight MVP.
 - warning engine for oil pressure, water temp, oil temp, and fuel
 - wireless Dictator transport left as an explicit extension point
 
+## Provider Selection Rules
+
+- the telemetry provider is chosen explicitly at backend startup through `PITSIGHT_PROVIDER_MODE`
+- supported startup providers are `simulator`, `obd2`, and `dictator`
+- provider changes saved through the settings API are treated as requested-next-startup state
+- live provider hot-switching is intentionally not performed in this build
+- current provider selection state is exposed through `GET /api/v1/settings` and `GET /health`
+
 ## Run
 
 ```powershell
 uv sync --extra dev
 uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Browser origins are controlled by `PITSIGHT_CORS_ORIGINS`. Supported formats:
+
+- comma-separated origins: `http://localhost:5173,http://192.168.3.104:5173`
+- JSON array: `["http://localhost:5173","http://192.168.3.104:5173"]`
+- wildcard: `*`
+
+Example LAN-friendly startup:
+
+```powershell
+$env:PITSIGHT_CORS_ORIGINS='http://192.168.3.104:5173'
+uv sync --extra dev
+uv run uvicorn pitsight_api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 To enable the first camera integration slice:
@@ -73,6 +95,7 @@ uv run uvicorn pitsight_api.main:app --reload --host 127.0.0.1 --port 8000
 - `GET /api/v1/camera/frame.jpg`
 - `GET /api/v1/camera/stream.mjpeg`
 - `WS /ws/telemetry`
+- provider runtime metadata is included in `GET /api/v1/settings` and `GET /health`
 
 ## Remaining Dictator limits
 

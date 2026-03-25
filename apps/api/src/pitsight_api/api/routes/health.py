@@ -23,6 +23,7 @@ async def health(request: Request) -> dict[str, object]:
     return {
         "status": "ok",
         "provider": service.provider_metadata.name.value,
+        "provider_runtime": settings_snapshot.provider_runtime.model_dump(mode="json"),
         "device_id": settings_snapshot.device_state.device_id,
         "device_online": settings_snapshot.device_state.online,
         "device_last_seen_at": (
@@ -57,4 +58,5 @@ async def health(request: Request) -> dict[str, object]:
             gps_status.updated_at.isoformat() if gps_status.updated_at is not None else None
         ),
         "session_id": session.session_id if session else None,
+        "capabilities": snapshot.capabilities.model_dump(mode="json") if snapshot is not None else None,
     }

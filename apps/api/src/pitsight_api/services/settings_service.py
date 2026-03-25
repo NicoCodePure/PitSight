@@ -20,6 +20,8 @@ from pitsight_api.core.models.app_settings import (
     DisplayPreferences,
     ECUTransportMethod,
     EffectiveSettingsSnapshot,
+    ProviderRuntimeSnapshot,
+    ProviderSelectionState,
     SettingsSyncSnapshot,
     SharedDisplaySettings,
     SharedSettings,
@@ -50,11 +52,16 @@ class SettingsService:
     async def load(self) -> AppSettingsSnapshot:
         stored = await self.repository.fetch_app_settings()
         if stored is not None:
-            self.device_runtime_service.prime(stored.device_state)
-            self._current = stored
-            return stored
+            normalized = self._normalize_provider_runtime(stored)
+            self.device_runtime_service.prime(normalized.device_state)
+            self._current = normalized
+            if normalized != stored:
+                await self.repository.store_app_settings(normalized)
+            return normalized
 
-        default_settings = AppSettingsSnapshot(**self.default_update().model_dump())
+        default_settings = self._normalize_provider_runtime(
+            AppSettingsSnapshot(**self.default_update().model_dump())
+        )
         await self.repository.store_app_settings(default_settings)
         self.device_runtime_service.prime(default_settings.device_state)
         self._current = default_settings
@@ -133,6 +140,7 @@ class SettingsService:
             effective=current.effective,
             sync_test=current.sync_test,
         )
+        next_snapshot = self._normalize_provider_runtime(next_snapshot, source_status=None)
         if self.event_service is not None:
             events = self.event_service.build_settings_update_events(current, next_snapshot)
             await self.event_service.record_events(events)
@@ -148,6 +156,7 @@ class SettingsService:
         )
         next_snapshot = current.model_copy(update={"sync_test": controls})
         next_snapshot = next_snapshot.model_copy(update={"device_state": runtime_device_state})
+        next_snapshot = self._normalize_provider_runtime(next_snapshot)
         await self.repository.store_app_settings(next_snapshot)
         self._current = next_snapshot
         return next_snapshot
@@ -212,12 +221,13 @@ class SettingsService:
             }
         )
 
-        return current.model_copy(
+        next_snapshot = current.model_copy(
             update={
                 "effective": next_effective,
                 "device_state": device_state,
             }
         )
+        return self._normalize_provider_runtime(next_snapshot)
 
     def _sync_state_for_pending(self, device_online: bool, pending: bool) -> SyncState:
         if pending:
@@ -257,7 +267,10 @@ class SettingsService:
             stored_state=current.device_state,
         )
 
-        pending_shared_changes = current.shared != current.effective.shared
+        pending_shared_changes = (
+            self._normalize_effective_shared(current.shared)
+            != self._normalize_effective_shared(current.effective.shared)
+        )
         pending_device_local_changes = current.device_local != current.effective.device_local
         display_mode_pending = (
             current.device_local.display.default_dashboard_mode
@@ -296,6 +309,10 @@ class SettingsService:
                 )
             }
         )
+        response_snapshot = self._normalize_provider_runtime(
+            response_snapshot,
+            source_status=source_status,
+        )
         if self.event_service is not None:
             events = self.event_service.build_device_state_events(
                 current.device_state,
@@ -304,3 +321,51 @@ class SettingsService:
             await self.event_service.record_events(events)
         self._current = response_snapshot
         return response_snapshot
+
+    def _normalize_provider_runtime(
+        self,
+        snapshot: AppSettingsSnapshot,
+        source_status: SourceStatus | None = None,
+    ) -> AppSettingsSnapshot:
+        normalized_effective_shared = self._normalize_effective_shared(snapshot.effective.shared)
+        active_provider = (
+            source_status.provider if source_status is not None else self.defaults.provider_mode
+        )
+        requested_provider = snapshot.shared.telemetry_source_preference
+        boot_provider = self.defaults.provider_mode
+        restart_required = requested_provider != boot_provider
+        if restart_required:
+            detail = (
+                f"Requested provider is {requested_provider.value.upper()}, but the running backend booted "
+                f"with {boot_provider.value.upper()}. Restart the backend or Pi with "
+                f"PITSIGHT_PROVIDER_MODE={requested_provider.value} to switch sources."
+            )
+            selection_state = ProviderSelectionState.RESTART_REQUIRED
+        else:
+            detail = (
+                f"{boot_provider.value.upper()} is the active startup provider. "
+                "Live provider switching is not supported in this build."
+            )
+            selection_state = ProviderSelectionState.ACTIVE
+
+        return snapshot.model_copy(
+            update={
+                "effective": snapshot.effective.model_copy(
+                    update={"shared": normalized_effective_shared}
+                ),
+                "provider_runtime": ProviderRuntimeSnapshot(
+                    boot_provider=boot_provider,
+                    requested_provider=requested_provider,
+                    active_provider=active_provider,
+                    selection_state=selection_state,
+                    live_switch_supported=False,
+                    restart_required=restart_required,
+                    detail=detail,
+                ),
+            }
+        )
+
+    def _normalize_effective_shared(self, shared: SharedSettings) -> SharedSettings:
+        return shared.model_copy(
+            update={"telemetry_source_preference": self.defaults.provider_mode}
+        )

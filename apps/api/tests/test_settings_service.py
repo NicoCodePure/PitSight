@@ -155,6 +155,12 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
         assert synced.sync.device_local_sync_state is SyncState.SYNCED
         assert synced.effective.shared.thresholds.oil_pressure_warning_bar == 1.9
         assert synced.effective.device_local.display.default_dashboard_mode is DashboardMode.PIT_DASHBOARD
+        assert synced.provider_runtime.boot_provider is ProviderName.SIMULATOR
+        assert synced.provider_runtime.requested_provider is ProviderName.DICTATOR
+        assert synced.provider_runtime.active_provider is ProviderName.SIMULATOR
+        assert synced.provider_runtime.restart_required is True
+        assert synced.provider_runtime.selection_state.value == "restart_required"
+        assert synced.sync.pending_shared_changes is False
 
         await repository.close()
 
@@ -176,6 +182,7 @@ def test_settings_service_persists_updates_and_exposes_defaults(tmp_path) -> Non
             assert reloaded.web.diagnostics_panel_enabled is False
             assert reloaded.effective.shared.thresholds.oil_pressure_warning_bar == 1.9
             assert reloaded.effective.device_local.display.default_dashboard_mode is DashboardMode.PIT_DASHBOARD
+            assert reloaded.provider_runtime.restart_required is True
         finally:
             await reloaded_repository.close()
 
@@ -290,5 +297,66 @@ def test_settings_service_runtime_snapshot_tracks_pending_and_apply_state(tmp_pa
         assert applied_snapshot.device_state.last_known_dashboard_mode is DashboardMode.DRIVER_LEMONS
 
         await repository.close()
+
+    asyncio.run(scenario())
+
+
+def test_settings_service_clears_restart_required_after_booting_requested_provider(tmp_path) -> None:
+    async def scenario() -> None:
+        database_path = tmp_path / "pitsight-settings-provider-restart.db"
+        initial_defaults = Settings(_env_file=None, database_path=database_path, provider_mode=ProviderName.SIMULATOR)
+
+        repository = SQLiteRepository(database_path)
+        await repository.initialize()
+        service = SettingsService(
+            repository=repository,
+            defaults=initial_defaults,
+            device_runtime_service=DeviceRuntimeService(initial_defaults),
+        )
+        loaded = await service.load()
+        await service.update(
+            loaded.model_copy(
+                update={
+                    "shared": loaded.shared.model_copy(
+                        update={"telemetry_source_preference": ProviderName.DICTATOR}
+                    )
+                }
+            )
+        )
+        pending = await service.runtime_snapshot(
+            SourceStatus(
+                provider=ProviderName.SIMULATOR,
+                transport="simulated",
+                protocol="loopback",
+                connection_state=ConnectionState.CONNECTED,
+                connected=True,
+                raw_capture_enabled=False,
+            )
+        )
+        assert pending.provider_runtime.restart_required is True
+        await repository.close()
+
+        reloaded_repository = SQLiteRepository(database_path)
+        await reloaded_repository.initialize()
+        try:
+            restarted_defaults = Settings(
+                _env_file=None,
+                database_path=database_path,
+                provider_mode=ProviderName.DICTATOR,
+            )
+            restarted_service = SettingsService(
+                repository=reloaded_repository,
+                defaults=restarted_defaults,
+                device_runtime_service=DeviceRuntimeService(restarted_defaults),
+            )
+            restarted = await restarted_service.load()
+
+            assert restarted.provider_runtime.boot_provider is ProviderName.DICTATOR
+            assert restarted.provider_runtime.requested_provider is ProviderName.DICTATOR
+            assert restarted.provider_runtime.restart_required is False
+            assert restarted.provider_runtime.selection_state.value == "active"
+            assert restarted.effective.shared.telemetry_source_preference is ProviderName.DICTATOR
+        finally:
+            await reloaded_repository.close()
 
     asyncio.run(scenario())

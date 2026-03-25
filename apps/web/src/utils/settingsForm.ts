@@ -40,136 +40,134 @@ const THRESHOLD_FIELD_DEFINITIONS: Record<ThresholdFieldName, ThresholdFieldDefi
   oil_pressure_advisory_bar: {
     field: "oil_pressure_advisory_bar",
     label: "Oil Pressure Advisory",
-    helper: "Early caution floor before the warning state.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "pressure",
   },
   oil_pressure_warning_bar: {
     field: "oil_pressure_warning_bar",
     label: "Oil Pressure Warning",
-    helper: "Driver should notice now if pressure falls below this point.",
+    helper: "Active backend alert threshold for low oil pressure.",
     unitKind: "pressure",
   },
   oil_pressure_critical_bar: {
     field: "oil_pressure_critical_bar",
     label: "Oil Pressure Critical",
-    helper: "Immediate engine risk below this minimum.",
+    helper: "Active backend alert threshold for critical oil pressure.",
     unitKind: "pressure",
   },
   water_temp_advisory_c: {
     field: "water_temp_advisory_c",
     label: "Coolant Temp Advisory",
-    helper: "Early rising-temperature caution.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "temperature",
   },
   water_temp_warning_c: {
     field: "water_temp_warning_c",
     label: "Coolant Temp Warning",
-    helper: "Driver should notice the coolant trend here.",
+    helper: "Active backend alert threshold for high coolant temperature.",
     unitKind: "temperature",
   },
   water_temp_critical_c: {
     field: "water_temp_critical_c",
     label: "Coolant Temp Critical",
-    helper: "Critical thermal threshold.",
+    helper: "Active backend alert threshold for critical coolant temperature.",
     unitKind: "temperature",
   },
   oil_temp_advisory_c: {
     field: "oil_temp_advisory_c",
     label: "Oil Temp Advisory",
-    helper: "Early oil heat caution.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "temperature",
   },
   oil_temp_warning_c: {
     field: "oil_temp_warning_c",
     label: "Oil Temp Warning",
-    helper: "Driver warning threshold for oil temperature.",
+    helper: "Active backend alert threshold for high oil temperature.",
     unitKind: "temperature",
   },
   oil_temp_critical_c: {
     field: "oil_temp_critical_c",
     label: "Oil Temp Critical",
-    helper: "Critical oil temperature threshold.",
+    helper: "Active backend alert threshold for critical oil temperature.",
     unitKind: "temperature",
   },
   battery_voltage_advisory_v: {
     field: "battery_voltage_advisory_v",
     label: "Battery Advisory",
-    helper: "Early low-voltage caution floor.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "voltage",
   },
   battery_voltage_warning_v: {
     field: "battery_voltage_warning_v",
     label: "Battery Warning",
-    helper: "Driver should notice sustained low voltage here.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "voltage",
   },
   battery_voltage_critical_v: {
     field: "battery_voltage_critical_v",
     label: "Battery Critical",
-    helper: "Critical low-voltage threshold.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "voltage",
   },
   fuel_pressure_advisory_bar: {
     field: "fuel_pressure_advisory_bar",
     label: "Fuel Pressure Advisory",
-    helper: "Early caution floor for fuel supply pressure.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "pressure",
   },
   fuel_pressure_warning_bar: {
     field: "fuel_pressure_warning_bar",
     label: "Fuel Pressure Warning",
-    helper: "Driver warning floor for fuel pressure.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "pressure",
   },
   fuel_pressure_critical_bar: {
     field: "fuel_pressure_critical_bar",
     label: "Fuel Pressure Critical",
-    helper: "Critical fuel pressure floor.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "pressure",
   },
   lambda_advisory_delta: {
     field: "lambda_advisory_delta",
     label: "Lambda Advisory",
-    helper: "Allowed deviation before a caution state.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "delta",
   },
   lambda_warning_delta: {
     field: "lambda_warning_delta",
     label: "Lambda Warning",
-    helper: "Warning deviation from target lambda.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "delta",
   },
   lambda_critical_delta: {
     field: "lambda_critical_delta",
     label: "Lambda Critical",
-    helper: "Critical deviation from target lambda.",
+    helper: "Stored for future use only. Does not generate backend alerts in this build.",
     unitKind: "delta",
   },
   fuel_level_warning_percent: {
     field: "fuel_level_warning_percent",
     label: "Fuel Level Warning",
-    helper: "Warn when usable fuel drops below this level.",
+    helper: "Active backend alert threshold for low fuel.",
     unitKind: "percent",
   },
 };
 
 export const THRESHOLD_GROUPS: ThresholdGroupDefinition[] = [
   {
-    id: "lubrication",
-    label: "Lubrication",
-    description: "Oil pressure floors for advisory, warning, and critical engine survival states.",
+    id: "oil-pressure",
+    label: "Oil Pressure",
+    description: "These values drive backend low-oil-pressure alerts and driver/pit warning states.",
     fields: [
-      THRESHOLD_FIELD_DEFINITIONS.oil_pressure_advisory_bar,
       THRESHOLD_FIELD_DEFINITIONS.oil_pressure_warning_bar,
       THRESHOLD_FIELD_DEFINITIONS.oil_pressure_critical_bar,
     ],
   },
   {
-    id: "cooling",
-    label: "Cooling",
-    description: "Coolant temperature escalation thresholds.",
+    id: "coolant-temp",
+    label: "Coolant Temperature",
+    description: "These values drive backend high-coolant-temperature alerts and driver/pit warning states.",
     fields: [
-      THRESHOLD_FIELD_DEFINITIONS.water_temp_advisory_c,
       THRESHOLD_FIELD_DEFINITIONS.water_temp_warning_c,
       THRESHOLD_FIELD_DEFINITIONS.water_temp_critical_c,
     ],
@@ -177,17 +175,39 @@ export const THRESHOLD_GROUPS: ThresholdGroupDefinition[] = [
   {
     id: "oil-temp",
     label: "Oil Temperature",
-    description: "Oil temperature escalation thresholds.",
+    description: "These values drive backend high-oil-temperature alerts and driver/pit warning states.",
     fields: [
-      THRESHOLD_FIELD_DEFINITIONS.oil_temp_advisory_c,
       THRESHOLD_FIELD_DEFINITIONS.oil_temp_warning_c,
       THRESHOLD_FIELD_DEFINITIONS.oil_temp_critical_c,
     ],
   },
   {
+    id: "fuel-level",
+    label: "Fuel Level",
+    description: "This value drives the backend low-fuel warning and related driver/pit warning states.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.fuel_level_warning_percent,
+    ],
+  },
+];
+
+export const DISPLAY_ONLY_THRESHOLD_GROUPS: ThresholdGroupDefinition[] = [
+  {
+    id: "advisory-bands",
+    label: "Advisory Bands",
+    description:
+      "Stored for compatibility and future use. Advisory bands do not currently generate backend alerts or warning banners.",
+    fields: [
+      THRESHOLD_FIELD_DEFINITIONS.oil_pressure_advisory_bar,
+      THRESHOLD_FIELD_DEFINITIONS.water_temp_advisory_c,
+      THRESHOLD_FIELD_DEFINITIONS.oil_temp_advisory_c,
+    ],
+  },
+  {
     id: "electrical",
-    label: "Electrical",
-    description: "Battery voltage floors for low-voltage detection.",
+    label: "Battery Voltage",
+    description:
+      "Stored for compatibility and future use. Battery thresholds do not currently generate backend alerts or warning banners.",
     fields: [
       THRESHOLD_FIELD_DEFINITIONS.battery_voltage_advisory_v,
       THRESHOLD_FIELD_DEFINITIONS.battery_voltage_warning_v,
@@ -195,20 +215,21 @@ export const THRESHOLD_GROUPS: ThresholdGroupDefinition[] = [
     ],
   },
   {
-    id: "fuel",
-    label: "Fuel",
-    description: "Fuel pressure floors and the low-fuel reserve warning.",
+    id: "fuel-pressure",
+    label: "Fuel Pressure",
+    description:
+      "Stored for compatibility and future use. Fuel-pressure thresholds do not currently generate backend alerts or warning banners.",
     fields: [
       THRESHOLD_FIELD_DEFINITIONS.fuel_pressure_advisory_bar,
       THRESHOLD_FIELD_DEFINITIONS.fuel_pressure_warning_bar,
       THRESHOLD_FIELD_DEFINITIONS.fuel_pressure_critical_bar,
-      THRESHOLD_FIELD_DEFINITIONS.fuel_level_warning_percent,
     ],
   },
   {
     id: "lambda",
     label: "Lambda / AFR",
-    description: "Deviation from target mixture before advisory, warning, and critical states.",
+    description:
+      "Stored for compatibility and future use. Lambda thresholds do not currently generate backend alerts or warning banners.",
     fields: [
       THRESHOLD_FIELD_DEFINITIONS.lambda_advisory_delta,
       THRESHOLD_FIELD_DEFINITIONS.lambda_warning_delta,

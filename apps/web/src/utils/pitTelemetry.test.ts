@@ -116,4 +116,68 @@ describe("buildPitDashboardViewModel", () => {
     expect(view.recentEvents[1]?.title).toBe("Device Disconnected");
     expect(view.recentEvents[1]?.state).toBe("critical");
   });
+
+  it("shows fuel pressure as diagnostic-only instead of a backend warning source", () => {
+    const snapshot = buildSnapshot();
+    snapshot.fuel.pressure_bar = 1.5;
+
+    const view = buildPitDashboardViewModel({
+      snapshot,
+      alerts: [] satisfies AlertEvent[],
+      events: [] satisfies SystemEvent[],
+      session: {
+        session_id: "session-1",
+        provider: "simulator",
+        started_at: "2026-03-25T09:55:00.000Z",
+      } satisfies SessionRecord,
+      streamStatus: "connected",
+      displayPreferences: DEFAULT_APP_SETTINGS.effective.shared.units,
+      settings: DEFAULT_APP_SETTINGS,
+    });
+
+    const fuelGroup = view.metricGroups.find((group) => group.id === "fuel");
+    const fuelPressure = fuelGroup?.metrics.find((metric) => metric.id === "pit-fuel-pressure");
+
+    expect(fuelPressure?.state).toBe("normal");
+    expect(fuelPressure?.detail).toContain("Diagnostic only");
+  });
+
+  it("surfaces limited lap and session capability states for real-source pit use", () => {
+    const snapshot = buildSnapshot();
+    snapshot.source.provider = "dictator";
+    snapshot.capabilities = {
+      lap_timing: {
+        level: "unavailable",
+        detail: "Lap timing is not available for this source in the current build.",
+      },
+      track_position: {
+        level: "limited",
+        detail: "Raw GPS location is available for context, but track mapping and start/finish logic are not implemented yet.",
+      },
+      session_clock: {
+        level: "limited",
+        detail: "Elapsed session, drive, and stint clocks are available, but they are not track-aware or lap-aware.",
+      },
+    };
+
+    const view = buildPitDashboardViewModel({
+      snapshot,
+      alerts: [] satisfies AlertEvent[],
+      events: [] satisfies SystemEvent[],
+      session: {
+        session_id: "session-1",
+        provider: "dictator",
+        started_at: "2026-03-25T09:55:00.000Z",
+      } satisfies SessionRecord,
+      streamStatus: "connected",
+      displayPreferences: DEFAULT_APP_SETTINGS.effective.shared.units,
+      settings: DEFAULT_APP_SETTINGS,
+    });
+
+    expect(view.topStatuses.find((status) => status.id === "lap-support")?.value).toBe("UNAVAILABLE");
+    expect(view.topStatuses.find((status) => status.id === "track-support")?.value).toBe("LIMITED");
+    expect(view.timingMetrics[0]?.state).toBe("unavailable");
+    expect(view.timingMetrics[4]?.state).toBe("advisory");
+    expect(view.summary).toBe("DICTATOR live. Lap timing unavailable; session clock limited.");
+  });
 });

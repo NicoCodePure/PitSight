@@ -58,6 +58,9 @@
     "camera": {
       "$ref": "#/$defs/camera"
     },
+    "capabilities": {
+      "$ref": "#/$defs/capabilities"
+    },
     "alerts": {
       "type": "array",
       "items": {
@@ -263,6 +266,35 @@
         "last_frame_at": {
           "type": ["string", "null"],
           "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "lap_timing": {
+          "$ref": "#/$defs/capability_status"
+        },
+        "track_position": {
+          "$ref": "#/$defs/capability_status"
+        },
+        "session_clock": {
+          "$ref": "#/$defs/capability_status"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capability_status": {
+      "type": "object",
+      "required": ["level", "detail"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["full", "limited", "unavailable"]
+        },
+        "detail": {
+          "type": "string"
         }
       },
       "additionalProperties": false

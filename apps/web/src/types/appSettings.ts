@@ -26,6 +26,7 @@ export type SyncState =
   | "local_device_setting"
   | "awaiting_apply_confirmation";
 export type ProviderName = "simulator" | "obd2" | "dictator";
+export type ProviderSelectionState = "active" | "restart_required" | "invalid";
 export type DeviceConnectionHealth = "nominal" | "degraded" | "fault" | "offline";
 export type ActiveDashboardModeSource = "reported" | "applied_default" | "last_known";
 export type TelemetryConnectionState =
@@ -146,6 +147,16 @@ export interface DeviceHeartbeatReport {
   connected_peripherals?: string[] | null;
 }
 
+export interface ProviderRuntimeSnapshot {
+  boot_provider: ProviderName;
+  requested_provider: ProviderName;
+  active_provider: ProviderName;
+  selection_state: ProviderSelectionState;
+  live_switch_supported: boolean;
+  restart_required: boolean;
+  detail: string;
+}
+
 export interface SettingsSyncSnapshot {
   device_online: boolean;
   sync_state: SyncState;
@@ -178,6 +189,7 @@ export interface AppSettingsUpdate {
 export interface AppSettingsSnapshot extends AppSettingsUpdate {
   updated_at: string;
   device_state: DeviceStateSnapshot;
+  provider_runtime: ProviderRuntimeSnapshot;
   sync: SettingsSyncSnapshot;
   effective: EffectiveSettingsSnapshot;
   sync_test: SyncTestControls;
@@ -275,6 +287,16 @@ export const DEFAULT_APP_SETTINGS: AppSettingsSnapshot = {
     online: false,
     last_sync_at: EPOCH,
     connected_peripherals: ["simulator feed", "loopback websocket"],
+  },
+  provider_runtime: {
+    boot_provider: "simulator",
+    requested_provider: "simulator",
+    active_provider: "simulator",
+    selection_state: "active",
+    live_switch_supported: false,
+    restart_required: false,
+    detail:
+      "Telemetry provider selection is explicit at backend startup. Changing providers requires a backend or Pi restart.",
   },
   sync: {
     device_online: false,

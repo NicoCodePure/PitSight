@@ -35,6 +35,18 @@ export type CameraState =
   | "unavailable"
   | "fault";
 export type CameraViewMode = "disabled" | "road" | "driver";
+export type CapabilityLevel = "full" | "limited" | "unavailable";
+
+export interface CapabilityStatus {
+  level: CapabilityLevel;
+  detail: string;
+}
+
+export interface TelemetryCapabilities {
+  lap_timing: CapabilityStatus;
+  track_position: CapabilityStatus;
+  session_clock: CapabilityStatus;
+}
 
 export interface SourceStatus {
   provider: ProviderName;
@@ -136,6 +148,7 @@ export interface TelemetrySnapshot {
   fuel: FuelMetrics;
   gps: GPSMetrics;
   camera: CameraMetrics;
+  capabilities?: TelemetryCapabilities;
   alerts: AlertEvent[];
   health_state: HealthState;
 }

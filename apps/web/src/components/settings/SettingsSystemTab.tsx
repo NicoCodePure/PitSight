@@ -6,6 +6,7 @@ import {
   formatDashboardMode,
   formatDeviceHealth,
   formatProviderRuntime,
+  formatProviderSelectionState,
   formatRelativeSyncStatus,
   formatSyncStatusBadge,
   getScopeBadges,
@@ -138,6 +139,22 @@ export function SettingsSystemTab({
             <dd>{formatProviderRuntime(settings.device_state.active_source_provider)}</dd>
           </div>
           <div className="settings-meta__row">
+            <dt>Boot Provider</dt>
+            <dd>{formatProviderRuntime(settings.provider_runtime.boot_provider)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Requested Provider</dt>
+            <dd>{formatProviderRuntime(settings.provider_runtime.requested_provider)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Provider Selection</dt>
+            <dd>{formatProviderSelectionState(settings.provider_runtime.selection_state)}</dd>
+          </div>
+          <div className="settings-meta__row">
+            <dt>Provider Restart Required</dt>
+            <dd>{settings.provider_runtime.restart_required ? "Yes" : "No"}</dd>
+          </div>
+          <div className="settings-meta__row">
             <dt>Source Connection</dt>
             <dd>
               {settings.device_state.source_connection_state
@@ -146,6 +163,8 @@ export function SettingsSystemTab({
             </dd>
           </div>
         </dl>
+
+        <div className="settings-note">{settings.provider_runtime.detail}</div>
       </SettingsSectionCard>
 
       <SettingsSectionCard

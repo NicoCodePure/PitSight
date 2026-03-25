@@ -8,7 +8,16 @@ from fastapi import WebSocket
 
 from pitsight_api.core.models.event import SystemEvent
 from pitsight_api.core.models.session import SessionRecord
-from pitsight_api.core.models.telemetry import AlertEvent, TelemetrySnapshot
+from pitsight_api.core.models.telemetry import (
+    AlertEvent,
+    CapabilityLevel,
+    CapabilityStatus,
+    ConnectionState,
+    GPSMetrics,
+    ProviderName,
+    TelemetryCapabilities,
+    TelemetrySnapshot,
+)
 from pitsight_api.providers.base import ProviderMetadata, TelemetryProvider
 from pitsight_api.services.camera_service import CameraService
 from pitsight_api.services.device_runtime_service import DeviceRuntimeService
@@ -19,6 +28,71 @@ from pitsight_api.services.warning_engine import WarningEngine
 from pitsight_api.storage.repository import SQLiteRepository
 
 logger = logging.getLogger(__name__)
+
+
+def build_runtime_capabilities(
+    provider: ProviderName,
+    gps_status: GPSMetrics,
+    *,
+    gps_runtime_enabled: bool,
+) -> TelemetryCapabilities:
+    if provider is ProviderName.SIMULATOR:
+        return TelemetryCapabilities(
+            lap_timing=CapabilityStatus(
+                level=CapabilityLevel.FULL,
+                detail="Simulator provides lap count, live lap time, best lap, delta, and optimal lap.",
+            ),
+            track_position=CapabilityStatus(
+                level=CapabilityLevel.FULL,
+                detail="Simulator provides a synthetic GPS loop and track-position context.",
+            ),
+            session_clock=CapabilityStatus(
+                level=CapabilityLevel.FULL,
+                detail="Simulator provides session, drive, and stint clocks.",
+            ),
+        )
+
+    gps_has_context = (
+        gps_status.present is True
+        or gps_status.latitude is not None
+        or gps_status.longitude is not None
+        or gps_status.fix_state is not None
+        or gps_status.connection_state
+        in {
+            ConnectionState.CONNECTING,
+            ConnectionState.CONNECTED,
+            ConnectionState.DEGRADED,
+        }
+    )
+    if gps_has_context:
+        gps_detail = gps_status.detail or "Raw GPS location can be reported, but track mapping and start/finish logic are not implemented yet."
+        track_position = CapabilityStatus(
+            level=CapabilityLevel.LIMITED,
+            detail=gps_detail,
+        )
+    else:
+        track_position = CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail=(
+                gps_status.detail
+                or (
+                    "No track-position support is active for this source. GPS track mapping and "
+                    "start/finish logic are not implemented yet."
+                )
+            ),
+        )
+
+    return TelemetryCapabilities(
+        lap_timing=CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Lap timing is not available for this source in the current build.",
+        ),
+        track_position=track_position,
+        session_clock=CapabilityStatus(
+            level=CapabilityLevel.LIMITED,
+            detail="Elapsed session, drive, and stint clocks are available, but they are not track-aware or lap-aware.",
+        ),
+    )
 
 
 class TelemetryService:
@@ -86,7 +160,14 @@ class TelemetryService:
                 self.device_runtime_service.observe_source(snapshot.source, observed_at=snapshot.timestamp)
                 gps_status = await self.gps_service.current_status()
                 camera_status = await self.camera_service.current_status()
-                snapshot_update: dict[str, object] = {"camera": camera_status}
+                snapshot_update: dict[str, object] = {
+                    "camera": camera_status,
+                    "capabilities": build_runtime_capabilities(
+                        snapshot.source.provider,
+                        gps_status,
+                        gps_runtime_enabled=self.gps_service.should_override_snapshot(),
+                    ),
+                }
                 if self.gps_service.should_override_snapshot():
                     snapshot_update["gps"] = gps_status
                 enriched_snapshot = snapshot.model_copy(update=snapshot_update)

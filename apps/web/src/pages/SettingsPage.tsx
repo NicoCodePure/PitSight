@@ -313,7 +313,9 @@ export function SettingsPage({
     try {
       await onSave(draft);
       setStatusTone("ok");
-      setStatusMessage("Settings saved. Sync status will update when the Pi confirms the active state.");
+      setStatusMessage(
+        "Settings saved. Live-applied settings update immediately when supported; provider changes require a backend or Pi restart.",
+      );
     } catch (nextError) {
       setSaveError(
         nextError instanceof Error
@@ -450,6 +452,11 @@ export function SettingsPage({
       {loading ? <div className="settings-status">Loading settings from backend...</div> : null}
       {saving ? <div className="settings-status">Saving settings and waiting for updated sync state...</div> : null}
       {error ? <div className="settings-status settings-status--warning">{error}</div> : null}
+      {settings.provider_runtime.restart_required ? (
+        <div className="settings-status settings-status--warning">
+          {settings.provider_runtime.detail}
+        </div>
+      ) : null}
       {isDirty ? (
         <div className="settings-status settings-status--info">
           Unsaved changes are staged locally. Save to persist requested state. Driver and pit screens only react to effective confirmed settings.

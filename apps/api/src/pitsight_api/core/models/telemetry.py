@@ -58,6 +58,42 @@ class CameraViewMode(str, Enum):
     DRIVER = "driver"
 
 
+class CapabilityLevel(str, Enum):
+    FULL = "full"
+    LIMITED = "limited"
+    UNAVAILABLE = "unavailable"
+
+
+class CapabilityStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    level: CapabilityLevel
+    detail: str
+
+
+class TelemetryCapabilities(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lap_timing: CapabilityStatus = Field(
+        default_factory=lambda: CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Lap timing support has not been declared for this snapshot.",
+        )
+    )
+    track_position: CapabilityStatus = Field(
+        default_factory=lambda: CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Track-position support has not been declared for this snapshot.",
+        )
+    )
+    session_clock: CapabilityStatus = Field(
+        default_factory=lambda: CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Session-clock support has not been declared for this snapshot.",
+        )
+    )
+
+
 class SourceStatus(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -173,6 +209,7 @@ class TelemetrySnapshot(BaseModel):
     fuel: FuelMetrics = Field(default_factory=FuelMetrics)
     gps: GPSMetrics = Field(default_factory=GPSMetrics)
     camera: CameraMetrics = Field(default_factory=CameraMetrics)
+    capabilities: TelemetryCapabilities = Field(default_factory=TelemetryCapabilities)
     alerts: list[AlertEvent] = Field(default_factory=list)
     health_state: HealthState = HealthState.NOMINAL
 

@@ -95,6 +95,12 @@ class SyncState(str, Enum):
     AWAITING_APPLY_CONFIRMATION = "awaiting_apply_confirmation"
 
 
+class ProviderSelectionState(str, Enum):
+    ACTIVE = "active"
+    RESTART_REQUIRED = "restart_required"
+    INVALID = "invalid"
+
+
 class DeviceConnectionHealth(str, Enum):
     NOMINAL = "nominal"
     DEGRADED = "degraded"
@@ -269,6 +275,21 @@ class DeviceHeartbeatReport(BaseModel):
     connected_peripherals: list[str] | None = None
 
 
+class ProviderRuntimeSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    boot_provider: ProviderName = ProviderName.SIMULATOR
+    requested_provider: ProviderName = ProviderName.SIMULATOR
+    active_provider: ProviderName = ProviderName.SIMULATOR
+    selection_state: ProviderSelectionState = ProviderSelectionState.ACTIVE
+    live_switch_supported: bool = False
+    restart_required: bool = False
+    detail: str = (
+        "Telemetry provider selection is explicit at backend startup. "
+        "Changing providers requires a backend or Pi restart."
+    )
+
+
 class SettingsSyncSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -380,6 +401,7 @@ class AppSettingsUpdate(BaseModel):
 class AppSettingsSnapshot(AppSettingsUpdate):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     device_state: DeviceStateSnapshot = Field(default_factory=DeviceStateSnapshot)
+    provider_runtime: ProviderRuntimeSnapshot = Field(default_factory=ProviderRuntimeSnapshot)
     sync: SettingsSyncSnapshot = Field(default_factory=SettingsSyncSnapshot)
     effective: EffectiveSettingsSnapshot
     sync_test: SyncTestControls = Field(default_factory=SyncTestControls)
@@ -403,6 +425,7 @@ class AppSettingsSnapshot(AppSettingsUpdate):
         device_local_payload = _coerce_mapping(candidate.get("device_local"))
         shared_payload = _coerce_mapping(candidate.get("shared"))
         raw_device_state = _coerce_mapping(candidate.get("device_state"))
+        raw_provider_runtime = _coerce_mapping(candidate.get("provider_runtime"))
         raw_sync = _coerce_mapping(candidate.get("sync"))
         effective = _coerce_mapping(candidate.get("effective"))
         effective_device_local = _coerce_mapping(effective.get("device_local")) or device_local_payload
@@ -439,6 +462,10 @@ class AppSettingsSnapshot(AppSettingsUpdate):
                     ActiveDashboardModeSource.LAST_KNOWN.value,
                 ),
                 "last_sync_at": raw_device_state.get("last_sync_at", updated_at),
+            },
+            "provider_runtime": {
+                **ProviderRuntimeSnapshot().model_dump(mode="json"),
+                **raw_provider_runtime,
             },
             "sync": {
                 **SettingsSyncSnapshot().model_dump(mode="json"),

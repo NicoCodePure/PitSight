@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import json
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from pitsight_api.core.models.app_settings import (
@@ -92,6 +93,33 @@ class Settings(BaseSettings):
     camera_frame_stale_seconds: float = 2.0
     camera_pi_device_index: int = 0
     camera_usb_device_index: int = 0
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value):
+        if value is None:
+            return [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ]
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped == "":
+                return []
+            if stripped == "*":
+                return ["*"]
+            if stripped.startswith("["):
+                parsed = json.loads(stripped)
+                if not isinstance(parsed, list):
+                    raise ValueError("CORS origins JSON must decode to a list of origin strings.")
+                return [str(item).strip() for item in parsed if str(item).strip()]
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
+
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip() for item in value if str(item).strip()]
+
+        raise TypeError("CORS origins must be provided as a list, JSON array, comma-separated string, or '*'.")
 
     @property
     def simulator_interval_seconds(self) -> float:

@@ -4,6 +4,8 @@ import type {
   DashboardMode,
   DeviceConnectionHealth,
   ProviderName,
+  ProviderRuntimeSnapshot,
+  ProviderSelectionState,
   SyncState,
 } from "../types/appSettings";
 
@@ -26,6 +28,18 @@ const PROVIDER_LABELS: Record<ProviderName, string> = {
   simulator: "Simulator",
   obd2: "OBD2",
   dictator: "Dictator",
+};
+
+const PROVIDER_SELECTION_LABELS: Record<ProviderSelectionState, string> = {
+  active: "Active",
+  restart_required: "Restart Required",
+  invalid: "Invalid",
+};
+
+const PROVIDER_SELECTION_TONES: Record<ProviderSelectionState, SettingsBadgeTone> = {
+  active: "normal",
+  restart_required: "warning",
+  invalid: "critical",
 };
 
 const DEVICE_HEALTH_LABELS: Record<DeviceConnectionHealth, string> = {
@@ -74,6 +88,21 @@ export function formatProviderPreference(provider: ProviderName): string {
 
 export function formatProviderRuntime(provider: ProviderName | null): string {
   return provider ? PROVIDER_LABELS[provider] : "Unavailable";
+}
+
+export function formatProviderSelectionState(
+  state: ProviderSelectionState,
+): string {
+  return PROVIDER_SELECTION_LABELS[state];
+}
+
+export function formatProviderSelectionBadge(
+  providerRuntime: ProviderRuntimeSnapshot,
+): SettingsStatusBadge {
+  return {
+    label: PROVIDER_SELECTION_LABELS[providerRuntime.selection_state],
+    tone: PROVIDER_SELECTION_TONES[providerRuntime.selection_state],
+  };
 }
 
 export function formatSyncState(syncState: SyncState): string {

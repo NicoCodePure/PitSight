@@ -13,7 +13,7 @@ from pitsight_api.api.routes.session import router as session_router
 from pitsight_api.api.routes.settings import router as settings_router
 from pitsight_api.api.routes.stream import router as stream_router
 from pitsight_api.api.routes.telemetry import router as telemetry_router
-from pitsight_api.config import get_settings
+from pitsight_api.config import Settings, get_settings
 from pitsight_api.logging import configure_logging
 from pitsight_api.providers.factory import build_provider
 from pitsight_api.services.camera_service import CameraService
@@ -28,6 +28,16 @@ from pitsight_api.storage.repository import SQLiteRepository
 
 settings = get_settings()
 configure_logging()
+
+
+def install_cors_middleware(app: FastAPI, app_settings: Settings) -> None:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=app_settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @asynccontextmanager
@@ -83,13 +93,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+install_cors_middleware(app, settings)
 
 app.include_router(health_router)
 app.include_router(device_router)

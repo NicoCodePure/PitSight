@@ -766,6 +766,36 @@ a {
   color: var(--muted);
 }
 
+.settings-threshold-summary {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-threshold-summary__item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.settings-threshold-summary__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.settings-threshold-summary__description,
+.settings-threshold-summary__fields {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.settings-threshold-summary__fields {
+  font-size: 0.92rem;
+}
+
 .settings-camera-preview {
   display: grid;
 }
@@ -1300,6 +1330,12 @@ a {
   min-height: 0;
 }
 
+.driver-lemons-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .driver-layout--lemons {
   grid-template-columns: minmax(190px, 0.92fr) minmax(0, 1.55fr) minmax(220px, 1.08fr);
 }
@@ -1785,6 +1821,10 @@ a {
     grid-template-columns: minmax(150px, 0.86fr) minmax(0, 1.46fr) minmax(180px, 0.98fr);
   }
 
+  .driver-lemons-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .driver-timing-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1858,6 +1898,7 @@ a {
   }
 
   .driver-status-badges,
+  .driver-lemons-grid,
   .driver-bottom-strip__items,
   .driver-focus-cluster__shell,
   .driver-timing-grid,

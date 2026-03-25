@@ -6,26 +6,24 @@ import type {
   DeviceStateSnapshot,
   SyncTestControls,
 } from "../types/appSettings";
+import {
+  buildApiUrl,
+  resolveApiMediaUrl as resolveApiMediaUrlFromConfig,
+  resolveTelemetryWebSocketUrl,
+  type ApiRuntimeConfig,
+} from "./network";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const runtimeApiConfig: ApiRuntimeConfig = {
+  explicitApiBaseUrl: import.meta.env.VITE_API_BASE_URL,
+  apiPort: import.meta.env.VITE_API_PORT,
+};
 
 function buildUrl(path: string): string {
-  return `${apiBaseUrl}${path}`;
-}
-
-function buildWebSocketUrl(path: string): string {
-  const url = new URL(apiBaseUrl);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = path;
-  url.search = "";
-  return url.toString();
+  return buildApiUrl(path, runtimeApiConfig);
 }
 
 export function resolveApiMediaUrl(path: string | null | undefined): string | null {
-  if (!path) {
-    return null;
-  }
-  return new URL(path, apiBaseUrl).toString();
+  return resolveApiMediaUrlFromConfig(path, runtimeApiConfig);
 }
 
 function extractErrorDetail(payload: unknown): string | null {
@@ -183,5 +181,5 @@ export async function postDeviceRuntimeHeartbeat(
 }
 
 export function openTelemetrySocket(): WebSocket {
-  return new WebSocket(buildWebSocketUrl("/ws/telemetry"));
+  return new WebSocket(resolveTelemetryWebSocketUrl("/ws/telemetry", runtimeApiConfig));
 }

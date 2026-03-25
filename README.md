@@ -21,6 +21,23 @@ The current scaffold is intentionally biased toward local laptop development bef
 - OBD2 baseline provider via ELM327/python-OBD
 - Dictator left as an explicit extension point
 
+## Provider Selection
+
+Telemetry provider selection is explicit at backend startup.
+
+- `PITSIGHT_PROVIDER_MODE=simulator` boots the simulator provider
+- `PITSIGHT_PROVIDER_MODE=obd2` boots the OBD2 provider
+- `PITSIGHT_PROVIDER_MODE=dictator` boots the Dictator provider
+- the running provider does not hot-switch when the settings page changes the requested telemetry source
+- the settings UI now shows:
+  - requested source
+  - boot provider
+  - active provider
+  - whether restart is required
+  - current live source connection state
+
+Changing the requested telemetry source in `/settings` saves the desired next provider, but the backend or Pi must be restarted before the running provider changes.
+
 ## Quick Start
 
 ### Backend
@@ -77,6 +94,58 @@ npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
+Frontend network resolution now follows a simple rule set:
+
+- if `VITE_API_BASE_URL` is set, the frontend uses it directly for REST, media, and WebSocket connections
+- otherwise, the frontend uses the current browser host with `VITE_API_PORT` or port `8000`
+- local dev therefore still resolves to `http://localhost:8000` when you open the app on `localhost:5173`
+- Pi/LAN testing works without code edits when the frontend and backend are on the same Pi host and the backend is reachable on port `8000`
+
+Backend browser access control is now environment-driven through `PITSIGHT_CORS_ORIGINS`. It accepts either:
+
+- a comma-separated string such as `http://localhost:5173,http://192.168.3.104:5173`
+- a JSON array string such as `["http://localhost:5173","http://192.168.3.104:5173"]`
+- `*` when you intentionally want to allow all origins
+
+## LAN / Pi Notes
+
+For Raspberry Pi or LAN testing where another machine opens the frontend:
+
+1. Start the backend on a LAN-reachable interface:
+
+```powershell
+uv run --project apps/api uvicorn pitsight_api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+2. Set backend CORS to allow the frontend origin:
+
+```powershell
+$env:PITSIGHT_CORS_ORIGINS='http://192.168.3.104:5173'
+```
+
+3. Start the frontend on a LAN-reachable interface:
+
+```powershell
+cd apps/web
+npm install
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+4. Open the frontend from the same Pi host or another LAN machine at:
+
+- `http://192.168.3.104:5173/driver/normal`
+- `http://192.168.3.104:5173/driver/lemons`
+- `http://192.168.3.104:5173/pit`
+- `http://192.168.3.104:5173/settings`
+
+If the frontend and backend are not on the same host, set:
+
+```powershell
+$env:VITE_API_BASE_URL='http://<pi-or-api-host>:8000'
+```
+
+before starting the frontend dev server or building the frontend.
+
 ## Expected URLs
 
 ### Frontend routes
@@ -125,6 +194,13 @@ GPS runtime is exposed separately over:
 - `GET /api/v1/gps/status`
 
 For local testing, open a driver or pit route with `?deviceRuntime=1` to make that page report itself as the active Pi dashboard mode.
+
+Provider runtime selection state is exposed through:
+
+- `GET /api/v1/settings`
+- `GET /health`
+
+Look for the `provider_runtime` block to see boot provider, requested provider, active provider, and restart-required state.
 
 ## Provider Assumptions And TODOs
 
