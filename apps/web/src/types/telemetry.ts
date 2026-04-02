@@ -7,6 +7,46 @@ export type ConnectionState =
   | "fault";
 export type AlertSeverity = "info" | "warning" | "critical";
 export type HealthState = "nominal" | "warning" | "critical";
+export type EventCategory =
+  | "alert"
+  | "source"
+  | "camera"
+  | "gps"
+  | "display"
+  | "settings"
+  | "device";
+export type EventAction =
+  | "entered"
+  | "cleared"
+  | "changed"
+  | "connected"
+  | "disconnected"
+  | "lost"
+  | "acquired"
+  | "requested"
+  | "applied";
+export type GPSFixState = "no_fix" | "2d" | "3d" | "dgps";
+export type CameraState =
+  | "disabled"
+  | "loading"
+  | "live"
+  | "no_signal"
+  | "offline"
+  | "unavailable"
+  | "fault";
+export type CameraViewMode = "disabled" | "road" | "driver";
+export type CapabilityLevel = "full" | "limited" | "unavailable";
+
+export interface CapabilityStatus {
+  level: CapabilityLevel;
+  detail: string;
+}
+
+export interface TelemetryCapabilities {
+  lap_timing: CapabilityStatus;
+  track_position: CapabilityStatus;
+  session_clock: CapabilityStatus;
+}
 
 export interface SourceStatus {
   provider: ProviderName;
@@ -24,6 +64,7 @@ export interface LapMetrics {
   previous_lap_time_ms?: number | null;
   best_lap_time_ms?: number | null;
   optimal_lap_estimate_ms?: number | null;
+  delta_ms?: number | null;
 }
 
 export interface SessionMetrics {
@@ -35,20 +76,42 @@ export interface SessionMetrics {
 export interface EngineMetrics {
   speed_kph?: number | null;
   rpm?: number | null;
+  gear?: number | null;
   water_temp_c?: number | null;
   oil_temp_c?: number | null;
   oil_pressure_bar?: number | null;
+  battery_voltage_v?: number | null;
+  lambda_value?: number | null;
+  afr?: number | null;
+  intake_temp_c?: number | null;
+  throttle_position_pct?: number | null;
 }
 
 export interface FuelMetrics {
   level_percent?: number | null;
   range_km?: number | null;
+  pressure_bar?: number | null;
 }
 
 export interface GPSMetrics {
   latitude?: number | null;
   longitude?: number | null;
   speed_kph?: number | null;
+  fix_state?: GPSFixState | null;
+  present?: boolean | null;
+  connection_state?: ConnectionState | null;
+  source?: string | null;
+  updated_at?: string | null;
+  detail?: string | null;
+}
+
+export interface CameraMetrics {
+  state?: CameraState | null;
+  mode?: CameraViewMode | null;
+  stream_url?: string | null;
+  detail?: string | null;
+  present?: boolean | null;
+  last_frame_at?: string | null;
 }
 
 export interface AlertEvent {
@@ -59,6 +122,18 @@ export interface AlertEvent {
   active: boolean;
   value?: number | null;
   threshold?: number | null;
+}
+
+export interface SystemEvent {
+  timestamp: string;
+  session_id?: string | null;
+  category: EventCategory;
+  code: string;
+  action: EventAction;
+  severity: AlertSeverity;
+  title: string;
+  detail: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface TelemetrySnapshot {
@@ -72,6 +147,8 @@ export interface TelemetrySnapshot {
   engine: EngineMetrics;
   fuel: FuelMetrics;
   gps: GPSMetrics;
+  camera: CameraMetrics;
+  capabilities?: TelemetryCapabilities;
   alerts: AlertEvent[];
   health_state: HealthState;
 }

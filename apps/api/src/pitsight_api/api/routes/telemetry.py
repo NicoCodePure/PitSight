@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
+from pitsight_api.core.models.event import SystemEvent
 from pitsight_api.api.deps import get_telemetry_service
 from pitsight_api.core.models.telemetry import AlertEvent, TelemetrySnapshot
 from pitsight_api.services.telemetry_service import TelemetryService
@@ -25,3 +26,10 @@ async def recent_alerts(
 ) -> list[AlertEvent]:
     return await service.recent_alerts(limit=limit)
 
+
+@router.get("/events/recent", response_model=list[SystemEvent])
+async def recent_events(
+    service: Annotated[TelemetryService, Depends(get_telemetry_service)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[SystemEvent]:
+    return await service.recent_events(limit=limit)

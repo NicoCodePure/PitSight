@@ -1,221 +1,495 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { SettingsCameraTab } from "../components/settings/SettingsCameraTab";
+import { SettingsConnectionsTab } from "../components/settings/SettingsConnectionsTab";
+import { SettingsDisplayTab } from "../components/settings/SettingsDisplayTab";
+import { SettingsSystemTab } from "../components/settings/SettingsSystemTab";
+import { SettingsTabNav } from "../components/settings/SettingsTabNav";
+import { SettingsThresholdsTab } from "../components/settings/SettingsThresholdsTab";
+import { SettingsUnitsTab } from "../components/settings/SettingsUnitsTab";
+import { SettingsVehicleTab } from "../components/settings/SettingsVehicleTab";
+import { DEFAULT_APP_SETTINGS } from "../types/appSettings";
 import type { AppSettingsSnapshot, AppSettingsUpdate } from "../types/appSettings";
-import { formatTimestamp } from "../utils/format";
+import type { CameraMetrics, SourceStatus } from "../types/telemetry";
+import { formatTimestamp, titleCase } from "../utils/format";
+import {
+  buildThresholdInputState,
+  hasUnsavedThresholdChanges,
+  parseThresholdFieldValue,
+  validateThresholdInputs,
+  type ThresholdFieldName,
+  type ThresholdInputState,
+} from "../utils/settingsForm";
+import { formatProviderPreference, formatRelativeSyncStatus } from "../utils/settingsSync";
 
 interface SettingsPageProps {
   settings: AppSettingsSnapshot;
+  defaults: AppSettingsUpdate;
   loading: boolean;
   saving: boolean;
   error: string | null;
   onSave: (payload: AppSettingsUpdate) => Promise<void>;
+  onUpdateSyncTestControls: (payload: AppSettingsSnapshot["sync_test"]) => Promise<void>;
+  onApplyPendingToDevice: () => Promise<void>;
+  source?: SourceStatus | null;
+  camera?: CameraMetrics | null;
+  streamStatus: "connecting" | "connected" | "disconnected";
+}
+
+type SettingsTabId =
+  | "connections"
+  | "vehicle"
+  | "display"
+  | "thresholds"
+  | "units"
+  | "camera"
+  | "sync";
+
+type StatusTone = "info" | "ok";
+
+const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
+  { id: "connections", label: "Device Connections" },
+  { id: "vehicle", label: "Vehicle / ECU" },
+  { id: "display", label: "Display Mode" },
+  { id: "thresholds", label: "Warning Thresholds" },
+  { id: "units", label: "Units" },
+  { id: "camera", label: "Camera" },
+  { id: "sync", label: "System / Sync" },
+];
+
+function buildDraft(settings: AppSettingsUpdate): AppSettingsUpdate {
+  return structuredClone(settings);
+}
+
+function buildSavedUpdate(settings: AppSettingsSnapshot): AppSettingsUpdate {
+  return {
+    device_local: structuredClone(settings.device_local),
+    shared: structuredClone(settings.shared),
+    web: structuredClone(settings.web),
+  };
+}
+
+function statusClassName(tone: StatusTone): string {
+  return tone === "ok" ? "settings-status settings-status--ok" : "settings-status settings-status--info";
 }
 
 export function SettingsPage({
   settings,
+  defaults,
   loading,
   saving,
   error,
   onSave,
+  onUpdateSyncTestControls,
+  onApplyPendingToDevice,
+  source,
+  camera,
+  streamStatus,
 }: SettingsPageProps) {
-  const [draft, setDraft] = useState<AppSettingsUpdate>({
-    thresholds: settings.thresholds,
-    display: settings.display,
-  });
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("connections");
+  const [draft, setDraft] = useState<AppSettingsUpdate>(() => buildSavedUpdate(settings));
+  const [thresholdInputs, setThresholdInputs] = useState<ThresholdInputState>(() =>
+    buildThresholdInputState(settings.shared.thresholds, settings.shared.units),
+  );
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<StatusTone>("info");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const savedUpdateSignature = useMemo(
+    () => JSON.stringify(buildSavedUpdate(settings)),
+    [settings.device_local, settings.shared, settings.web],
+  );
 
   useEffect(() => {
-    setDraft({
-      thresholds: settings.thresholds,
-      display: settings.display,
-    });
-  }, [settings]);
+    setDraft(buildSavedUpdate(settings));
+    setThresholdInputs(buildThresholdInputState(settings.shared.thresholds, settings.shared.units));
+  }, [savedUpdateSignature]);
 
-  const updateThreshold = (name: keyof AppSettingsUpdate["thresholds"], value: string) => {
+  const thresholdValidation = useMemo(
+    () => validateThresholdInputs(thresholdInputs, draft.shared.units),
+    [draft.shared.units, thresholdInputs],
+  );
+  const isDirty = useMemo(() => {
+    const savedUpdate = buildSavedUpdate(settings);
+    return (
+      JSON.stringify(draft) !== JSON.stringify(savedUpdate) ||
+      hasUnsavedThresholdChanges(thresholdInputs, draft.shared.units, settings)
+    );
+  }, [draft, settings, thresholdInputs]);
+  const canSave = !loading && !saving && isDirty && thresholdValidation.summary === null;
+
+  const clearTransientMessages = () => {
+    setStatusMessage(null);
+    setSaveError(null);
+  };
+
+  const applyDraft = (nextDraft: AppSettingsUpdate) => {
+    const cloned = buildDraft(nextDraft);
+    setDraft(cloned);
+    setThresholdInputs(buildThresholdInputState(cloned.shared.thresholds, cloned.shared.units));
+  };
+
+  const updateThresholdInput = (field: ThresholdFieldName, value: string) => {
+    clearTransientMessages();
+    setThresholdInputs((current) => ({
+      ...current,
+      [field]: value,
+    }));
+
+    const parsed = parseThresholdFieldValue(field, value, draft.shared.units);
+    if (parsed === null) {
+      return;
+    }
+
     setDraft((current) => ({
       ...current,
-      thresholds: {
-        ...current.thresholds,
-        [name]: Number(value),
+      shared: {
+        ...current.shared,
+        thresholds: {
+          ...current.shared.thresholds,
+          [field]: parsed,
+        },
       },
     }));
   };
 
-  const updateDisplay = (name: keyof AppSettingsUpdate["display"], value: string) => {
+  const updateSharedUnits = (
+    field: keyof AppSettingsUpdate["shared"]["units"],
+    value: AppSettingsUpdate["shared"]["units"][keyof AppSettingsUpdate["shared"]["units"]],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => {
+      const nextUnits = {
+        ...current.shared.units,
+        [field]: value,
+      };
+      setThresholdInputs(buildThresholdInputState(current.shared.thresholds, nextUnits));
+      return {
+        ...current,
+        shared: {
+          ...current.shared,
+          units: nextUnits,
+        },
+      };
+    });
+  };
+
+  const updateSharedDisplay = (
+    field: keyof AppSettingsUpdate["shared"]["display"],
+    value: AppSettingsUpdate["shared"]["display"][keyof AppSettingsUpdate["shared"]["display"]],
+  ) => {
+    clearTransientMessages();
     setDraft((current) => ({
       ...current,
-      display: {
-        ...current.display,
-        [name]: value,
+      shared: {
+        ...current.shared,
+        display: {
+          ...current.shared.display,
+          [field]: value,
+        },
       },
     }));
+  };
+
+  const updateConnections = (
+    field: keyof AppSettingsUpdate["device_local"]["connections"],
+    value: AppSettingsUpdate["device_local"]["connections"][keyof AppSettingsUpdate["device_local"]["connections"]],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => ({
+      ...current,
+      device_local: {
+        ...current.device_local,
+        connections: {
+          ...current.device_local.connections,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const updateVehicle = (
+    field: keyof AppSettingsUpdate["device_local"]["vehicle"],
+    value: AppSettingsUpdate["device_local"]["vehicle"][keyof AppSettingsUpdate["device_local"]["vehicle"]],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => ({
+      ...current,
+      device_local: {
+        ...current.device_local,
+        vehicle: {
+          ...current.device_local.vehicle,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const updateDeviceCamera = (
+    field: keyof AppSettingsUpdate["device_local"]["camera"],
+    value: AppSettingsUpdate["device_local"]["camera"][keyof AppSettingsUpdate["device_local"]["camera"]],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => ({
+      ...current,
+      device_local: {
+        ...current.device_local,
+        camera: {
+          ...current.device_local.camera,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const updateDeviceDisplay = (
+    field: keyof AppSettingsUpdate["device_local"]["display"],
+    value: AppSettingsUpdate["device_local"]["display"][keyof AppSettingsUpdate["device_local"]["display"]],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => ({
+      ...current,
+      device_local: {
+        ...current.device_local,
+        display: {
+          ...current.device_local.display,
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const updateSharedRoot = (
+    field: keyof Pick<AppSettingsUpdate["shared"], "telemetry_source_preference" | "camera_mode_preference">,
+    value: AppSettingsUpdate["shared"][keyof Pick<AppSettingsUpdate["shared"], "telemetry_source_preference" | "camera_mode_preference">],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => ({
+      ...current,
+      shared: {
+        ...current.shared,
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateWeb = (
+    field: keyof AppSettingsUpdate["web"],
+    value: AppSettingsUpdate["web"][keyof AppSettingsUpdate["web"]],
+  ) => {
+    clearTransientMessages();
+    setDraft((current) => ({
+      ...current,
+      web: {
+        ...current.web,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleCancel = () => {
+    applyDraft(buildSavedUpdate(settings));
+    setStatusTone("info");
+    setStatusMessage("Unsaved changes discarded. The editor now matches the last confirmed state.");
+    setSaveError(null);
+  };
+
+  const handleResetToDefaults = () => {
+    applyDraft(defaults);
+    setStatusTone("info");
+    setStatusMessage("Configured defaults loaded into the form. Save to push them live.");
+    setSaveError(null);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSaveMessage(null);
+    setStatusMessage(null);
     setSaveError(null);
+
+    if (thresholdValidation.summary !== null) {
+      setSaveError(thresholdValidation.summary);
+      return;
+    }
+
     try {
       await onSave(draft);
-      setSaveMessage("Settings saved.");
-    } catch {
-      setSaveError("Could not save settings. Check backend status and try again.");
+      setStatusTone("ok");
+      setStatusMessage(
+        "Settings saved. Live-applied settings update immediately when supported; provider changes require a backend or Pi restart.",
+      );
+    } catch (nextError) {
+      setSaveError(
+        nextError instanceof Error
+          ? nextError.message
+          : "Could not save settings. Check backend status and try again.",
+      );
+    }
+  };
+
+  const lastSavedLabel =
+    settings.updated_at === DEFAULT_APP_SETTINGS.updated_at && loading
+      ? "Loading saved settings..."
+      : settings.updated_at === DEFAULT_APP_SETTINGS.updated_at
+        ? "Using local defaults"
+        : formatTimestamp(settings.updated_at);
+  const lastSyncLabel = settings.sync.last_sync_at ? formatTimestamp(settings.sync.last_sync_at) : "--";
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case "connections":
+        return (
+          <SettingsConnectionsTab
+            settings={settings}
+            draft={draft}
+            source={source}
+            streamStatus={streamStatus}
+            onConnectionChange={updateConnections}
+          />
+        );
+      case "vehicle":
+        return (
+          <SettingsVehicleTab
+            settings={settings}
+            draft={draft}
+            source={source}
+            streamStatus={streamStatus}
+            onSharedRootChange={updateSharedRoot}
+            onVehicleChange={updateVehicle}
+          />
+        );
+      case "display":
+        return (
+          <SettingsDisplayTab
+            settings={settings}
+            draft={draft}
+            onSharedDisplayChange={updateSharedDisplay}
+            onDeviceDisplayChange={updateDeviceDisplay}
+          />
+        );
+      case "thresholds":
+        return (
+          <SettingsThresholdsTab
+            settings={settings}
+            draft={draft}
+            thresholdInputs={thresholdInputs}
+            fieldErrors={thresholdValidation.fieldErrors}
+            onThresholdInputChange={updateThresholdInput}
+          />
+        );
+      case "units":
+        return <SettingsUnitsTab settings={settings} draft={draft} onSharedUnitsChange={updateSharedUnits} />;
+      case "camera":
+        return (
+          <SettingsCameraTab
+            settings={settings}
+            draft={draft}
+            camera={camera}
+            onSharedRootChange={updateSharedRoot}
+            onDeviceCameraChange={updateDeviceCamera}
+          />
+        );
+      case "sync":
+        return (
+          <SettingsSystemTab
+            settings={settings}
+            draft={draft}
+            lastSavedLabel={lastSavedLabel}
+            lastSyncLabel={lastSyncLabel}
+            saving={saving}
+            onWebChange={updateWeb}
+            onUpdateSyncTestControls={onUpdateSyncTestControls}
+            onApplyPendingToDevice={onApplyPendingToDevice}
+          />
+        );
     }
   };
 
   return (
-    <main className="screen screen--settings">
+    <main className="screen screen--settings screen--driver-theme screen--settings-theme">
       <header className="screen__header screen__header--pit">
         <div>
           <p className="screen__eyebrow">PitSight</p>
-          <h1 className="screen__title">Settings</h1>
+          <h1 className="screen__title screen__title--lemons">Settings &amp; Sync</h1>
         </div>
         <div className="session-summary">
-          <span>Last saved {formatTimestamp(settings.updated_at)}</span>
-          <span>Thresholds use canonical C and bar units</span>
+          <span>Last saved {lastSavedLabel}</span>
+          <span>Last sync {lastSyncLabel}</span>
         </div>
       </header>
 
-      <section className="panel settings-panel">
-        <div className="panel__title">Configuration</div>
-        {loading ? <div className="settings-status">Loading settings...</div> : null}
-        {error ? <div className="settings-status settings-status--warning">{error}</div> : null}
-        {saveError ? <div className="settings-status settings-status--warning">{saveError}</div> : null}
-        {saveMessage ? <div className="settings-status settings-status--ok">{saveMessage}</div> : null}
+      <section className="settings-overview">
+        <div className="settings-overview__copy">
+          <p className="settings-overview__eyebrow">Hybrid Settings Model</p>
+          <h2 className="settings-overview__title">
+            Device-local, shared, and web-only settings with explicit sync awareness.
+          </h2>
+          <p className="settings-overview__body">
+            The Pi can run independently when offline. Requested settings, effective device settings, and sync-test controls are exposed separately so pending and applied state can be validated end to end.
+          </p>
+        </div>
 
-        <form className="settings-form" onSubmit={handleSubmit}>
-          <section className="settings-group">
-            <h2 className="settings-group__title">Alert Thresholds</h2>
-
-            <label className="settings-field">
-              <span>Oil pressure warning (bar)</span>
-              <input
-                type="number"
-                step="0.1"
-                value={draft.thresholds.oil_pressure_warning_bar}
-                onChange={(event) => updateThreshold("oil_pressure_warning_bar", event.target.value)}
-              />
-            </label>
-
-            <label className="settings-field">
-              <span>Oil pressure critical (bar)</span>
-              <input
-                type="number"
-                step="0.1"
-                value={draft.thresholds.oil_pressure_critical_bar}
-                onChange={(event) => updateThreshold("oil_pressure_critical_bar", event.target.value)}
-              />
-            </label>
-
-            <label className="settings-field">
-              <span>Water temp warning (C)</span>
-              <input
-                type="number"
-                step="1"
-                value={draft.thresholds.water_temp_warning_c}
-                onChange={(event) => updateThreshold("water_temp_warning_c", event.target.value)}
-              />
-            </label>
-
-            <label className="settings-field">
-              <span>Water temp critical (C)</span>
-              <input
-                type="number"
-                step="1"
-                value={draft.thresholds.water_temp_critical_c}
-                onChange={(event) => updateThreshold("water_temp_critical_c", event.target.value)}
-              />
-            </label>
-
-            <label className="settings-field">
-              <span>Oil temp warning (C)</span>
-              <input
-                type="number"
-                step="1"
-                value={draft.thresholds.oil_temp_warning_c}
-                onChange={(event) => updateThreshold("oil_temp_warning_c", event.target.value)}
-              />
-            </label>
-
-            <label className="settings-field">
-              <span>Oil temp critical (C)</span>
-              <input
-                type="number"
-                step="1"
-                value={draft.thresholds.oil_temp_critical_c}
-                onChange={(event) => updateThreshold("oil_temp_critical_c", event.target.value)}
-              />
-            </label>
-
-            <label className="settings-field">
-              <span>Low fuel warning (%)</span>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                value={draft.thresholds.fuel_level_warning_percent}
-                onChange={(event) => updateThreshold("fuel_level_warning_percent", event.target.value)}
-              />
-            </label>
-          </section>
-
-          <section className="settings-group">
-            <h2 className="settings-group__title">Display Preferences</h2>
-
-            <label className="settings-field">
-              <span>Speed unit</span>
-              <select
-                value={draft.display.speed_unit}
-                onChange={(event) => updateDisplay("speed_unit", event.target.value)}
-              >
-                <option value="kph">kph</option>
-                <option value="mph">mph</option>
-              </select>
-            </label>
-
-            <label className="settings-field">
-              <span>Temperature unit</span>
-              <select
-                value={draft.display.temperature_unit}
-                onChange={(event) => updateDisplay("temperature_unit", event.target.value)}
-              >
-                <option value="celsius">Celsius</option>
-                <option value="fahrenheit">Fahrenheit</option>
-              </select>
-            </label>
-
-            <label className="settings-field">
-              <span>Pressure unit</span>
-              <select
-                value={draft.display.pressure_unit}
-                onChange={(event) => updateDisplay("pressure_unit", event.target.value)}
-              >
-                <option value="bar">bar</option>
-                <option value="psi">psi</option>
-              </select>
-            </label>
-
-            <label className="settings-field">
-              <span>Default driver mode</span>
-              <select
-                value={draft.display.default_driver_mode}
-                onChange={(event) => updateDisplay("default_driver_mode", event.target.value)}
-              >
-                <option value="normal">Normal</option>
-                <option value="lemons">Lemons</option>
-              </select>
-            </label>
-          </section>
-
-          <div className="settings-actions">
-            <button className="settings-button" type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save Settings"}
-            </button>
-          </div>
-        </form>
+        <div className="driver-status-badges">
+          <article className={`driver-status-badge driver-status-badge--${settings.sync.device_online ? "normal" : "unavailable"}`}>
+            <span className="driver-status-badge__label">Device</span>
+            <span className="driver-status-badge__value">{settings.sync.device_online ? "ONLINE" : "OFFLINE"}</span>
+          </article>
+          <article className={`driver-status-badge driver-status-badge--${formatRelativeSyncStatus(settings).tone}`}>
+            <span className="driver-status-badge__label">Sync</span>
+            <span className="driver-status-badge__value">{formatRelativeSyncStatus(settings).label.toUpperCase()}</span>
+          </article>
+          <article className={`driver-status-badge driver-status-badge--${streamStatus === "connected" ? "normal" : streamStatus === "connecting" ? "advisory" : "critical"}`}>
+            <span className="driver-status-badge__label">Stream</span>
+            <span className="driver-status-badge__value">{titleCase(streamStatus)}</span>
+          </article>
+          <article className={`driver-status-badge driver-status-badge--${source?.connected ? "normal" : "unavailable"}`}>
+            <span className="driver-status-badge__label">Source</span>
+            <span className="driver-status-badge__value">
+              {source?.provider ? formatProviderPreference(source.provider).toUpperCase() : "UNAVAILABLE"}
+            </span>
+          </article>
+        </div>
       </section>
+
+      {loading ? <div className="settings-status">Loading settings from backend...</div> : null}
+      {saving ? <div className="settings-status">Saving settings and waiting for updated sync state...</div> : null}
+      {error ? <div className="settings-status settings-status--warning">{error}</div> : null}
+      {settings.provider_runtime.restart_required ? (
+        <div className="settings-status settings-status--warning">
+          {settings.provider_runtime.detail}
+        </div>
+      ) : null}
+      {isDirty ? (
+        <div className="settings-status settings-status--info">
+          Unsaved changes are staged locally. Save to persist requested state. Driver and pit screens only react to effective confirmed settings.
+        </div>
+      ) : null}
+      {thresholdValidation.summary ? (
+        <div className="settings-status settings-status--warning">{thresholdValidation.summary}</div>
+      ) : null}
+      {saveError ? <div className="settings-status settings-status--warning">{saveError}</div> : null}
+      {statusMessage ? <div className={statusClassName(statusTone)}>{statusMessage}</div> : null}
+
+      <form className="settings-form settings-form--workspace" onSubmit={handleSubmit}>
+        <section className="settings-workspace">
+          <SettingsTabNav
+            tabs={SETTINGS_TABS}
+            activeTab={activeTab}
+            onChange={(tabId) => setActiveTab(tabId as SettingsTabId)}
+          />
+          <div className="settings-workspace__body">{renderActiveTab()}</div>
+        </section>
+
+        <div className="settings-actions">
+          <button className="settings-button settings-button--secondary" type="button" disabled={!isDirty || saving} onClick={handleCancel}>
+            Cancel
+          </button>
+          <button className="settings-button settings-button--secondary" type="button" disabled={saving} onClick={handleResetToDefaults}>
+            Reset To Defaults
+          </button>
+          <button className="settings-button" type="submit" disabled={!canSave}>
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+      </form>
     </main>
   );
 }

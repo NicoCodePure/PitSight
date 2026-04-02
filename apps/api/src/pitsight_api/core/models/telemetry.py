@@ -6,7 +6,7 @@ from typing import Any, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
 
 
 class ProviderName(str, Enum):
@@ -35,6 +35,65 @@ class HealthState(str, Enum):
     CRITICAL = "critical"
 
 
+class GPSFixState(str, Enum):
+    NO_FIX = "no_fix"
+    FIX_2D = "2d"
+    FIX_3D = "3d"
+    DGPS = "dgps"
+
+
+class CameraState(str, Enum):
+    DISABLED = "disabled"
+    LOADING = "loading"
+    LIVE = "live"
+    NO_SIGNAL = "no_signal"
+    OFFLINE = "offline"
+    UNAVAILABLE = "unavailable"
+    FAULT = "fault"
+
+
+class CameraViewMode(str, Enum):
+    DISABLED = "disabled"
+    ROAD = "road"
+    DRIVER = "driver"
+
+
+class CapabilityLevel(str, Enum):
+    FULL = "full"
+    LIMITED = "limited"
+    UNAVAILABLE = "unavailable"
+
+
+class CapabilityStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    level: CapabilityLevel
+    detail: str
+
+
+class TelemetryCapabilities(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lap_timing: CapabilityStatus = Field(
+        default_factory=lambda: CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Lap timing support has not been declared for this snapshot.",
+        )
+    )
+    track_position: CapabilityStatus = Field(
+        default_factory=lambda: CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Track-position support has not been declared for this snapshot.",
+        )
+    )
+    session_clock: CapabilityStatus = Field(
+        default_factory=lambda: CapabilityStatus(
+            level=CapabilityLevel.UNAVAILABLE,
+            detail="Session-clock support has not been declared for this snapshot.",
+        )
+    )
+
+
 class SourceStatus(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -55,6 +114,7 @@ class LapMetrics(BaseModel):
     previous_lap_time_ms: int | None = None
     best_lap_time_ms: int | None = None
     optimal_lap_estimate_ms: int | None = None
+    delta_ms: int | None = None
 
 
 class SessionMetrics(BaseModel):
@@ -70,9 +130,15 @@ class EngineMetrics(BaseModel):
 
     speed_kph: float | None = None
     rpm: float | None = None
+    gear: int | None = None
     water_temp_c: float | None = None
     oil_temp_c: float | None = None
     oil_pressure_bar: float | None = None
+    battery_voltage_v: float | None = None
+    lambda_value: float | None = None
+    afr: float | None = None
+    intake_temp_c: float | None = None
+    throttle_position_pct: float | None = None
 
 
 class FuelMetrics(BaseModel):
@@ -80,6 +146,7 @@ class FuelMetrics(BaseModel):
 
     level_percent: float | None = None
     range_km: float | None = None
+    pressure_bar: float | None = None
 
 
 class GPSMetrics(BaseModel):
@@ -88,6 +155,23 @@ class GPSMetrics(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     speed_kph: float | None = None
+    fix_state: GPSFixState | None = None
+    present: bool | None = None
+    connection_state: ConnectionState | None = None
+    source: str | None = None
+    updated_at: datetime | None = None
+    detail: str | None = None
+
+
+class CameraMetrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    state: CameraState | None = None
+    mode: CameraViewMode | None = None
+    stream_url: str | None = None
+    detail: str | None = None
+    present: bool | None = None
+    last_frame_at: datetime | None = None
 
 
 class AlertEvent(BaseModel):
@@ -124,6 +208,8 @@ class TelemetrySnapshot(BaseModel):
     engine: EngineMetrics = Field(default_factory=EngineMetrics)
     fuel: FuelMetrics = Field(default_factory=FuelMetrics)
     gps: GPSMetrics = Field(default_factory=GPSMetrics)
+    camera: CameraMetrics = Field(default_factory=CameraMetrics)
+    capabilities: TelemetryCapabilities = Field(default_factory=TelemetryCapabilities)
     alerts: list[AlertEvent] = Field(default_factory=list)
     health_state: HealthState = HealthState.NOMINAL
 

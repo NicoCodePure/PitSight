@@ -14,6 +14,7 @@
     "engine",
     "fuel",
     "gps",
+    "camera",
     "alerts",
     "health_state"
   ],
@@ -53,6 +54,12 @@
     },
     "gps": {
       "$ref": "#/$defs/gps"
+    },
+    "camera": {
+      "$ref": "#/$defs/camera"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/capabilities"
     },
     "alerts": {
       "type": "array",
@@ -121,6 +128,9 @@
         "optimal_lap_estimate_ms": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "delta_ms": {
+          "type": ["integer", "null"]
         }
       },
       "additionalProperties": false
@@ -152,6 +162,9 @@
         "rpm": {
           "type": ["number", "null"]
         },
+        "gear": {
+          "type": ["integer", "null"]
+        },
         "water_temp_c": {
           "type": ["number", "null"]
         },
@@ -159,6 +172,21 @@
           "type": ["number", "null"]
         },
         "oil_pressure_bar": {
+          "type": ["number", "null"]
+        },
+        "battery_voltage_v": {
+          "type": ["number", "null"]
+        },
+        "lambda_value": {
+          "type": ["number", "null"]
+        },
+        "afr": {
+          "type": ["number", "null"]
+        },
+        "intake_temp_c": {
+          "type": ["number", "null"]
+        },
+        "throttle_position_pct": {
           "type": ["number", "null"]
         }
       },
@@ -171,6 +199,9 @@
           "type": ["number", "null"]
         },
         "range_km": {
+          "type": ["number", "null"]
+        },
+        "pressure_bar": {
           "type": ["number", "null"]
         }
       },
@@ -187,6 +218,83 @@
         },
         "speed_kph": {
           "type": ["number", "null"]
+        },
+        "fix_state": {
+          "type": ["string", "null"],
+          "enum": ["no_fix", "2d", "3d", "dgps", null]
+        },
+        "present": {
+          "type": ["boolean", "null"]
+        },
+        "connection_state": {
+          "type": ["string", "null"],
+          "enum": ["connecting", "connected", "degraded", "disconnected", "fault", null]
+        },
+        "source": {
+          "type": ["string", "null"]
+        },
+        "updated_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "detail": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "camera": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": ["string", "null"],
+          "enum": ["disabled", "loading", "live", "no_signal", "offline", "unavailable", "fault", null]
+        },
+        "mode": {
+          "type": ["string", "null"],
+          "enum": ["disabled", "road", "driver", null]
+        },
+        "stream_url": {
+          "type": ["string", "null"]
+        },
+        "detail": {
+          "type": ["string", "null"]
+        },
+        "present": {
+          "type": ["boolean", "null"]
+        },
+        "last_frame_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "lap_timing": {
+          "$ref": "#/$defs/capability_status"
+        },
+        "track_position": {
+          "$ref": "#/$defs/capability_status"
+        },
+        "session_clock": {
+          "$ref": "#/$defs/capability_status"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capability_status": {
+      "type": "object",
+      "required": ["level", "detail"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["full", "limited", "unavailable"]
+        },
+        "detail": {
+          "type": "string"
         }
       },
       "additionalProperties": false

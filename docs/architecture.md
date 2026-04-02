@@ -159,8 +159,8 @@ Panels:
 - temperatures and oil pressure
 - fuel warning when present
 - drive time and stint time
-- optional camera panel placeholder
-- recent alerts timeline
+- camera panel with explicit live/loading/no-signal/offline states
+- recent events timeline with alert transitions and state changes
 
 ## Phased MVP Plan
 
@@ -192,12 +192,13 @@ Panels:
 - OBD2 provider via `python-OBD`
 - PID mapping into normalized telemetry
 - degraded/partial-data handling
+- real-world baseline testing against ELM327-compatible adapters
 
 ### Phase 5
 
-- Dictator serial transport
+- Dictator USB serial transport
 - raw capture/debug mode
-- decoder iteration from captured payloads
+- tolerant decoder iteration from captured payloads
 - protocol hardening and diagnostics
 
 ### Phase 6
@@ -206,4 +207,3 @@ Panels:
 - kiosk startup
 - Bluetooth/USB adapter selection
 - optional camera streaming
-

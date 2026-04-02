@@ -4,6 +4,16 @@ from pitsight_api.core.models.app_settings import AlertThresholdSettings
 from pitsight_api.core.models.telemetry import AlertEvent, AlertSeverity, TelemetrySnapshot
 from pitsight_api.services.settings_service import SettingsService
 
+ACTIVE_BACKEND_ALERT_THRESHOLD_FIELDS = (
+    "oil_pressure_warning_bar",
+    "oil_pressure_critical_bar",
+    "water_temp_warning_c",
+    "water_temp_critical_c",
+    "oil_temp_warning_c",
+    "oil_temp_critical_c",
+    "fuel_level_warning_percent",
+)
+
 
 class WarningEngine:
     def __init__(self, settings_service: SettingsService) -> None:
@@ -11,11 +21,15 @@ class WarningEngine:
 
     @property
     def thresholds(self) -> AlertThresholdSettings:
-        return self.settings_service.current().thresholds
+        return self.settings_service.current().effective.shared.thresholds
 
     def evaluate(self, snapshot: TelemetrySnapshot) -> list[AlertEvent]:
         alerts: list[AlertEvent] = list(snapshot.alerts)
         engine = snapshot.engine
+
+        # Only the thresholds below are active backend alert sources in this build.
+        # Advisory bands plus battery, fuel-pressure, and lambda thresholds remain
+        # stored settings for future compatibility and do not emit alerts yet.
 
         if engine.oil_pressure_bar is not None:
             if engine.oil_pressure_bar <= self.thresholds.oil_pressure_critical_bar:

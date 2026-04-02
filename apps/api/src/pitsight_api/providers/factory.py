@@ -12,8 +12,7 @@ def build_provider(settings: Settings) -> TelemetryProvider:
     if settings.provider_mode == ProviderName.SIMULATOR:
         return SimulatorTelemetryProvider(interval_seconds=settings.simulator_interval_seconds)
     if settings.provider_mode == ProviderName.OBD2:
-        return OBD2TelemetryProvider()
+        return OBD2TelemetryProvider(settings=settings)
     if settings.provider_mode == ProviderName.DICTATOR:
-        return DictatorTelemetryProvider(raw_capture_enabled=True)
+        return DictatorTelemetryProvider(settings=settings)
     raise ValueError(f"Unsupported provider mode: {settings.provider_mode}")
-

@@ -1,109 +1,111 @@
-import type { DisplayPreferences } from "../types/appSettings";
-import { AlertTimeline } from "../components/AlertTimeline";
-import { MetricCard } from "../components/MetricCard";
-import { StatusStrip } from "../components/StatusStrip";
-import { WarningBanner } from "../components/WarningBanner";
-import type { AlertEvent, SessionRecord, TelemetrySnapshot } from "../types/telemetry";
-import {
-  formatDuration,
-  formatMetric,
-  formatPressure,
-  formatSpeed,
-  formatTemperature,
-  formatTimestamp,
-  pressureUnitLabel,
-  speedUnitLabel,
-  temperatureUnitLabel,
-} from "../utils/format";
+import { DriverAlertStrip } from "../components/driver/DriverAlertStrip";
+import { DriverBottomStrip } from "../components/driver/DriverBottomStrip";
+import { DriverFocusCluster } from "../components/driver/DriverFocusCluster";
+import { TelemetryStateCard } from "../components/driver/TelemetryStateCard";
+import { TimingMetricCard } from "../components/driver/TimingMetricCard";
+import { CameraPanel } from "../components/CameraPanel";
+import { PitEventTimeline } from "../components/pit/PitEventTimeline";
+import type { AppSettingsSnapshot } from "../types/appSettings";
+import type { AlertEvent, SessionRecord, SystemEvent, TelemetrySnapshot } from "../types/telemetry";
+import { buildPitDashboardViewModel } from "../utils/pitTelemetry";
 
 interface PitDashboardPageProps {
   snapshot: TelemetrySnapshot | null;
   alerts: AlertEvent[];
+  events: SystemEvent[];
   session: SessionRecord | null;
   streamStatus: "connecting" | "connected" | "disconnected";
-  displayPreferences: DisplayPreferences;
+  settings: AppSettingsSnapshot;
 }
 
 export function PitDashboardPage({
   snapshot,
   alerts,
+  events,
   session,
   streamStatus,
-  displayPreferences,
+  settings,
 }: PitDashboardPageProps) {
-  const idleMessage = streamStatus === "connected" ? "No active alarms" : "Waiting for backend feed";
+  const view = buildPitDashboardViewModel({
+    snapshot,
+    alerts,
+    events,
+    session,
+    streamStatus,
+    displayPreferences: settings.effective.shared.units,
+    settings,
+  });
 
   return (
-    <main className="screen screen--pit">
-      <header className="screen__header screen__header--pit">
-        <div>
-          <p className="screen__eyebrow">PitSight</p>
-          <h1 className="screen__title">Pit Dashboard</h1>
-        </div>
-        <div className="session-summary">
-          <span>Session start {formatTimestamp(session?.started_at)}</span>
-          <span>Last sample {formatTimestamp(snapshot?.timestamp)}</span>
-        </div>
-      </header>
+    <main className="screen screen--pit screen--driver-theme screen--pit-theme">
+      <section className="driver-top-strip pit-top-strip">
+        <div className="driver-top-strip__status">
+          <div>
+            <p className="screen__eyebrow">PitSight</p>
+            <h1 className="screen__title screen__title--lemons">Pit Dashboard</h1>
+          </div>
 
-      <WarningBanner
-        alerts={snapshot?.alerts ?? []}
-        idleMessage={idleMessage}
-        displayPreferences={displayPreferences}
-      />
-      <StatusStrip
-        source={snapshot?.source}
-        streamStatus={streamStatus}
-        healthState={snapshot?.health_state}
-        sessionId={session?.session_id ?? snapshot?.session_id}
-      />
-
-      <section className="pit-layout">
-        <div className="pit-layout__main">
-          <div className="metric-grid metric-grid--pit">
-            <MetricCard label="Lap Count" value={formatMetric(snapshot?.lap.lap_count)} />
-            <MetricCard label="Current Lap" value={formatDuration(snapshot?.lap.current_lap_time_ms)} />
-            <MetricCard label="Previous Lap" value={formatDuration(snapshot?.lap.previous_lap_time_ms)} />
-            <MetricCard label="Best Lap" value={formatDuration(snapshot?.lap.best_lap_time_ms)} />
-            <MetricCard label="Drive Time" value={formatDuration(snapshot?.session.drive_time_ms)} />
-            <MetricCard label="Stint Time" value={formatDuration(snapshot?.session.stint_time_ms)} />
-            <MetricCard
-              label="Speed"
-              value={formatSpeed(snapshot?.engine.speed_kph, displayPreferences.speed_unit)}
-              unit={speedUnitLabel(displayPreferences.speed_unit)}
-            />
-            <MetricCard label="RPM" value={formatMetric(snapshot?.engine.rpm)} unit="rpm" />
-            <MetricCard
-              label="Oil Pressure"
-              value={formatPressure(snapshot?.engine.oil_pressure_bar, displayPreferences.pressure_unit)}
-              unit={pressureUnitLabel(displayPreferences.pressure_unit)}
-            />
-            <MetricCard
-              label="Water Temp"
-              value={formatTemperature(snapshot?.engine.water_temp_c, displayPreferences.temperature_unit)}
-              unit={temperatureUnitLabel(displayPreferences.temperature_unit)}
-            />
-            <MetricCard
-              label="Oil Temp"
-              value={formatTemperature(snapshot?.engine.oil_temp_c, displayPreferences.temperature_unit)}
-              unit={temperatureUnitLabel(displayPreferences.temperature_unit)}
-            />
-            <MetricCard label="Fuel Level" value={formatMetric(snapshot?.fuel.level_percent, 1)} unit="%" />
+          <div className="driver-status-badges">
+            {view.topStatuses.map((status) => (
+              <article key={status.id} className={`driver-status-badge driver-status-badge--${status.state}`}>
+                <span className="driver-status-badge__label">{status.label}</span>
+                <span className="driver-status-badge__value">{status.value}</span>
+              </article>
+            ))}
           </div>
         </div>
 
-        <aside className="pit-layout__side">
-          <section className="panel">
-            <div className="panel__title">Camera</div>
-            <div className="camera-placeholder">Camera stream placeholder</div>
+        <DriverAlertStrip
+          alerts={view.alerts}
+          clearTitle="PIT STATUS CLEAR"
+          clearDetail={view.summary}
+        />
+      </section>
+
+      <section className="pit-dashboard-layout">
+        <div className="pit-dashboard-layout__main">
+          <section className="driver-section">
+            <div className="driver-section__title">Core Overview</div>
+            <DriverFocusCluster focus={view.focus} />
           </section>
 
-          <section className="panel">
-            <div className="panel__title">Recent Alerts</div>
-            <AlertTimeline alerts={alerts} />
+          <section className="pit-group-grid">
+            {view.metricGroups.map((group) => (
+              <section key={group.id} className="pit-group-panel">
+                <div className="driver-section__title">{group.label}</div>
+                <div className="pit-group-panel__metrics">
+                  {group.metrics.map((metric) => (
+                    <TelemetryStateCard key={metric.id} metric={metric} />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </section>
+        </div>
+
+        <aside className="pit-dashboard-layout__side">
+          <section className="pit-side-panel">
+            <div className="driver-section__title">Camera</div>
+            <CameraPanel view={view.camera} size="pit" />
+          </section>
+
+          <section className="pit-side-panel">
+            <div className="driver-section__title">Timing / Session</div>
+            <div className="driver-timing-grid pit-timing-grid">
+              {view.timingMetrics.map((metric) => (
+                <TimingMetricCard key={metric.id} metric={metric} />
+              ))}
+            </div>
+          </section>
+
+          <section className="pit-side-panel">
+            <div className="driver-section__title">Recent Alerts / Events</div>
+            <PitEventTimeline events={view.recentEvents} />
           </section>
         </aside>
       </section>
+
+      <DriverBottomStrip summary={view.summary} items={view.footerItems} />
     </main>
   );
 }

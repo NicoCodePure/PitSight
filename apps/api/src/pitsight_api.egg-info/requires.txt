@@ -4,12 +4,19 @@ pydantic<3.0,>=2.8
 pydantic-settings<3.0,>=2.4
 uvicorn[standard]<1.0,>=0.30
 
+[camera]
+opencv-python-headless<5.0,>=4.10
+
 [dev]
 httpx<1.0,>=0.28
 pytest<9.0,>=8.3
 ruff<1.0,>=0.6
 
 [dictator]
+pyserial<4.0,>=3.5
+
+[gps]
+pynmea2<2.0,>=1.19
 pyserial<4.0,>=3.5
 
 [obd2]
