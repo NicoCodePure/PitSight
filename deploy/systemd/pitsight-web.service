@@ -1,0 +1,18 @@
+[Unit]
+Description=PitSight Web Dashboard
+After=network-online.target pitsight-api.service
+Wants=network-online.target pitsight-api.service
+
+[Service]
+Type=simple
+User=__PITSIGHT_SERVICE_USER__
+Group=__PITSIGHT_SERVICE_USER__
+WorkingDirectory=__PITSIGHT_INSTALL_DIR__/apps/web
+EnvironmentFile=/etc/pitsight/pitsight.env
+Environment=NODE_ENV=production
+ExecStart=__PITSIGHT_NPM_PATH__ run preview -- --host 0.0.0.0 --port ${PITSIGHT_WEB_PORT}
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
