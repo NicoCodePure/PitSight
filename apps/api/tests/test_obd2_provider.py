@@ -103,6 +103,8 @@ def test_obd2_provider_maps_available_pid_values_into_canonical_snapshot() -> No
         assert snapshot.fuel.pressure_bar == 2.97
         assert snapshot.gps.speed_kph is None
         assert snapshot.session.session_time_ms is not None
+        assert "rpm" in snapshot.source.details["implemented_metrics"]
+        assert "rpm" in snapshot.source.details["available_metrics"]
         assert "speed" in snapshot.source.details["observed_metrics"]
         assert "rpm" in snapshot.source.details["supported_metrics"]
 
@@ -152,6 +154,11 @@ def test_obd2_provider_leaves_missing_fields_null_and_marks_degraded_if_core_dat
         assert snapshot.engine.water_temp_c is None
         assert snapshot.engine.battery_voltage_v == 12.8
         assert snapshot.fuel.level_percent is None
+        assert "battery_voltage" in snapshot.source.details["available_metrics"]
+        assert "rpm" in snapshot.source.details["unavailable_metrics"]
+        assert "speed" in snapshot.source.details["unavailable_metrics"]
+        assert "coolant_temp" in snapshot.source.details["unavailable_metrics"]
+        assert "battery_voltage" not in snapshot.source.details["unavailable_metrics"]
 
     asyncio.run(scenario())
 

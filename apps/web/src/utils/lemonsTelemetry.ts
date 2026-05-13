@@ -117,6 +117,7 @@ const RPM_SHIFT_START = 5200;
 const RPM_SHIFT_TARGET = 6600;
 const RPM_REDLINE = 7200;
 const SHIFT_LIGHT_SEGMENTS = 10;
+const UNAVAILABLE_VIA_CONNECTION_METHOD = "Unavailable via connection method";
 
 const STATE_LABELS: Record<TelemetryVisualState, string> = {
   normal: "Normal",
@@ -201,6 +202,40 @@ function getCapabilityValue(capability: CapabilityStatus): string {
   return capability.level.toUpperCase();
 }
 
+function sourceUsesNonSimulatorConnection(snapshot: TelemetrySnapshot | null): boolean {
+  return Boolean(snapshot && snapshot.source.provider !== "simulator");
+}
+
+function sourceHasNoLiveSamples(snapshot: TelemetrySnapshot | null): boolean {
+  return Boolean(
+    snapshot &&
+      (snapshot.source.connection_state === "fault" ||
+        snapshot.source.connection_state === "disconnected" ||
+        !snapshot.source.connected),
+  );
+}
+
+function unavailableMetricDetail(
+  snapshot: TelemetrySnapshot | null,
+  fallback: string,
+): string {
+  if (!sourceUsesNonSimulatorConnection(snapshot)) {
+    return fallback;
+  }
+  return sourceHasNoLiveSamples(snapshot) ? "No live samples" : UNAVAILABLE_VIA_CONNECTION_METHOD;
+}
+
+function unavailableCapabilityDetail(
+  snapshot: TelemetrySnapshot | null,
+  capability: CapabilityStatus,
+  fallback: string,
+): string {
+  if (capability.level === "unavailable") {
+    return unavailableMetricDetail(snapshot, fallback);
+  }
+  return capability.detail;
+}
+
 function getAlertBackedMetricState(
   snapshot: TelemetrySnapshot | null,
   value: number | null | undefined,
@@ -244,7 +279,11 @@ function getSignalState(
   if (snapshot.source.connection_state === "degraded") {
     return "warning";
   }
-  if (snapshot.source.connection_state === "fault" || snapshot.source.connection_state === "disconnected") {
+  if (
+    !snapshot.source.connected ||
+    snapshot.source.connection_state === "fault" ||
+    snapshot.source.connection_state === "disconnected"
+  ) {
     return "critical";
   }
   return "normal";
@@ -291,7 +330,7 @@ function getSpeedSourceDetail(snapshot: TelemetrySnapshot | null): string {
   if (snapshot?.gps.speed_kph !== null && snapshot?.gps.speed_kph !== undefined) {
     return "GPS fallback";
   }
-  return "Speed feed missing";
+  return unavailableMetricDetail(snapshot, "Speed feed missing");
 }
 
 function formatPressureThreshold(value: number, displayPreferences: DisplayPreferences): string {
@@ -331,7 +370,57 @@ function formatProviderShortName(snapshot: TelemetrySnapshot | null): string {
   }
 }
 
+function formatSourceStatusValue(
+  snapshot: TelemetrySnapshot | null,
+  streamStatus: "connecting" | "connected" | "disconnected",
+): string {
+  const source = formatProviderShortName(snapshot);
+  if (!snapshot) {
+    return source;
+  }
+  if (streamStatus === "disconnected") {
+    return `${source} DOWN`;
+  }
+
+  switch (snapshot.source.connection_state) {
+    case "connected":
+      return snapshot.source.connected ? `${source} LIVE` : `${source} DOWN`;
+    case "degraded":
+      return `${source} DEGRADED`;
+    case "connecting":
+      return `${source} CONNECTING`;
+    case "fault":
+      return `${source} FAULT`;
+    case "disconnected":
+      return `${source} DOWN`;
+  }
+}
+
+function formatLinkStatusValue(
+  snapshot: TelemetrySnapshot | null,
+  streamStatus: "connecting" | "connected" | "disconnected",
+): string {
+  if (!snapshot || streamStatus === "disconnected") {
+    return "DOWN";
+  }
+  if (streamStatus === "connecting" || snapshot.source.connection_state === "connecting") {
+    return "CONNECTING";
+  }
+  if (snapshot.source.connection_state === "degraded") {
+    return "DEGRADED";
+  }
+  if (
+    !snapshot.source.connected ||
+    snapshot.source.connection_state === "fault" ||
+    snapshot.source.connection_state === "disconnected"
+  ) {
+    return "DOWN";
+  }
+  return "CONNECTED";
+}
+
 function buildOilPressureDetail(
+  snapshot: TelemetrySnapshot | null,
   state: TelemetryVisualState,
   value: number | null | undefined,
   rpm: number | null | undefined,
@@ -339,7 +428,7 @@ function buildOilPressureDetail(
   displayPreferences: DisplayPreferences,
 ): string {
   if (state === "unavailable") {
-    return "Sensor missing";
+    return unavailableMetricDetail(snapshot, "Sensor missing");
   }
 
   const formattedValue = formatPressure(value, displayPreferences.pressure_unit);
@@ -354,6 +443,7 @@ function buildOilPressureDetail(
 }
 
 function buildTemperatureDetail(
+  snapshot: TelemetrySnapshot | null,
   state: TelemetryVisualState,
   value: number | null | undefined,
   warningThreshold: number,
@@ -361,7 +451,7 @@ function buildTemperatureDetail(
   displayPreferences: DisplayPreferences,
 ): string {
   if (state === "unavailable") {
-    return "Sensor missing";
+    return unavailableMetricDetail(snapshot, "Sensor missing");
   }
 
   const formattedValue = formatTemperature(value, displayPreferences.temperature_unit);
@@ -378,13 +468,14 @@ function buildTemperatureDetail(
 }
 
 function buildFuelDetail(
+  snapshot: TelemetrySnapshot | null,
   state: TelemetryVisualState,
   levelPercent: number | null | undefined,
   rangeKm: number | null | undefined,
   thresholds: AlertThresholdSettings,
 ): string {
   if (state === "unavailable") {
-    return "Feed missing";
+    return unavailableMetricDetail(snapshot, "Feed missing");
   }
   if (state === "warning") {
     return `${formatMetric(levelPercent, 1)}% remaining`;
@@ -396,22 +487,24 @@ function buildFuelDetail(
 }
 
 function buildBatteryDetail(
+  snapshot: TelemetrySnapshot | null,
   state: TelemetryVisualState,
   value: number | null | undefined,
 ): string {
   if (state === "unavailable") {
-    return "Feed unavailable";
+    return unavailableMetricDetail(snapshot, "Feed unavailable");
   }
   return `${formatMetric(value, 1)} V Diagnostic only. No backend alert configured.`;
 }
 
 function buildLambdaDetail(
+  snapshot: TelemetrySnapshot | null,
   state: TelemetryVisualState,
   lambdaValue: number | null | undefined,
   afrValue: number | null | undefined,
 ): string {
   if (state === "unavailable") {
-    return "Feed unavailable";
+    return unavailableMetricDetail(snapshot, "Feed unavailable");
   }
   const afrDetail =
     afrValue === null || afrValue === undefined ? null : `AFR ${formatMetric(afrValue, 1)}`;
@@ -424,11 +517,12 @@ function buildLambdaDetail(
 }
 
 function buildAfrDetail(
+  snapshot: TelemetrySnapshot | null,
   state: TelemetryVisualState,
   afrValue: number | null | undefined,
 ): string {
   if (state === "unavailable") {
-    return "Feed unavailable";
+    return unavailableMetricDetail(snapshot, "Feed unavailable");
   }
   return `AFR ${formatMetric(afrValue, 1)} Diagnostic only. No backend alert configured.`;
 }
@@ -555,53 +649,55 @@ function buildSystemAlerts(
     });
   }
 
-  const coreSensors: Array<{
-    id: string;
-    value: number | null | undefined;
-    title: string;
-    source: string;
-  }> = [
-    {
-      id: "oil-pressure-sensor",
-      value: snapshot.engine.oil_pressure_bar,
-      title: "OIL PRESSURE SENSOR UNAVAILABLE",
-      source: "Oil pressure",
-    },
-    {
-      id: "coolant-temp-sensor",
-      value: snapshot.engine.water_temp_c,
-      title: "COOLANT TEMP SENSOR UNAVAILABLE",
-      source: "Coolant temp",
-    },
-    {
-      id: "oil-temp-sensor",
-      value: snapshot.engine.oil_temp_c,
-      title: "OIL TEMP SENSOR UNAVAILABLE",
-      source: "Oil temp",
-    },
-    {
-      id: "rpm-signal",
-      value: snapshot.engine.rpm,
-      title: "RPM SIGNAL UNAVAILABLE",
-      source: "RPM",
-    },
-    {
-      id: "speed-signal",
-      value: getTrueSpeed(snapshot),
-      title: "SPEED SIGNAL UNAVAILABLE",
-      source: "Speed",
-    },
-  ];
+  if (snapshot.source.provider === "simulator") {
+    const coreSensors: Array<{
+      id: string;
+      value: number | null | undefined;
+      title: string;
+      source: string;
+    }> = [
+      {
+        id: "oil-pressure-sensor",
+        value: snapshot.engine.oil_pressure_bar,
+        title: "OIL PRESSURE SENSOR UNAVAILABLE",
+        source: "Oil pressure",
+      },
+      {
+        id: "coolant-temp-sensor",
+        value: snapshot.engine.water_temp_c,
+        title: "COOLANT TEMP SENSOR UNAVAILABLE",
+        source: "Coolant temp",
+      },
+      {
+        id: "oil-temp-sensor",
+        value: snapshot.engine.oil_temp_c,
+        title: "OIL TEMP SENSOR UNAVAILABLE",
+        source: "Oil temp",
+      },
+      {
+        id: "rpm-signal",
+        value: snapshot.engine.rpm,
+        title: "RPM SIGNAL UNAVAILABLE",
+        source: "RPM",
+      },
+      {
+        id: "speed-signal",
+        value: getTrueSpeed(snapshot),
+        title: "SPEED SIGNAL UNAVAILABLE",
+        source: "Speed",
+      },
+    ];
 
-  for (const sensor of coreSensors) {
-    if (sensor.value === null || sensor.value === undefined) {
-      alerts.push({
-        id: sensor.id,
-        severity: "unavailable",
-        source: sensor.source,
-        title: sensor.title,
-        detail: "Sensor data missing",
-      });
+    for (const sensor of coreSensors) {
+      if (sensor.value === null || sensor.value === undefined) {
+        alerts.push({
+          id: sensor.id,
+          severity: "unavailable",
+          source: sensor.source,
+          title: sensor.title,
+          detail: "Sensor data missing",
+        });
+      }
     }
   }
 
@@ -655,53 +751,55 @@ function buildLemonsSystemAlerts(
     });
   }
 
-  const essentialSensors: Array<{
-    id: string;
-    value: number | null | undefined;
-    title: string;
-    source: string;
-  }> = [
-    {
-      id: "oil-pressure-sensor",
-      value: snapshot.engine.oil_pressure_bar,
-      title: "OIL PRESSURE SENSOR UNAVAILABLE",
-      source: "Oil pressure",
-    },
-    {
-      id: "coolant-temp-sensor",
-      value: snapshot.engine.water_temp_c,
-      title: "COOLANT TEMP SENSOR UNAVAILABLE",
-      source: "Coolant temp",
-    },
-    {
-      id: "oil-temp-sensor",
-      value: snapshot.engine.oil_temp_c,
-      title: "OIL TEMP SENSOR UNAVAILABLE",
-      source: "Oil temp",
-    },
-    {
-      id: "speed-signal",
-      value: getTrueSpeed(snapshot),
-      title: "SPEED SIGNAL UNAVAILABLE",
-      source: "Speed",
-    },
-    {
-      id: "rpm-signal",
-      value: snapshot.engine.rpm,
-      title: "RPM SIGNAL UNAVAILABLE",
-      source: "RPM",
-    },
-  ];
+  if (snapshot.source.provider === "simulator") {
+    const essentialSensors: Array<{
+      id: string;
+      value: number | null | undefined;
+      title: string;
+      source: string;
+    }> = [
+      {
+        id: "oil-pressure-sensor",
+        value: snapshot.engine.oil_pressure_bar,
+        title: "OIL PRESSURE SENSOR UNAVAILABLE",
+        source: "Oil pressure",
+      },
+      {
+        id: "coolant-temp-sensor",
+        value: snapshot.engine.water_temp_c,
+        title: "COOLANT TEMP SENSOR UNAVAILABLE",
+        source: "Coolant temp",
+      },
+      {
+        id: "oil-temp-sensor",
+        value: snapshot.engine.oil_temp_c,
+        title: "OIL TEMP SENSOR UNAVAILABLE",
+        source: "Oil temp",
+      },
+      {
+        id: "speed-signal",
+        value: getTrueSpeed(snapshot),
+        title: "SPEED SIGNAL UNAVAILABLE",
+        source: "Speed",
+      },
+      {
+        id: "rpm-signal",
+        value: snapshot.engine.rpm,
+        title: "RPM SIGNAL UNAVAILABLE",
+        source: "RPM",
+      },
+    ];
 
-  for (const sensor of essentialSensors) {
-    if (sensor.value === null || sensor.value === undefined) {
-      alerts.push({
-        id: sensor.id,
-        severity: "unavailable",
-        source: sensor.source,
-        title: sensor.title,
-        detail: "Sensor data missing",
-      });
+    for (const sensor of essentialSensors) {
+      if (sensor.value === null || sensor.value === undefined) {
+        alerts.push({
+          id: sensor.id,
+          severity: "unavailable",
+          source: sensor.source,
+          title: sensor.title,
+          detail: "Sensor data missing",
+        });
+      }
     }
   }
 
@@ -807,7 +905,6 @@ function buildTopStatuses(
   streamStatus: "connecting" | "connected" | "disconnected",
   systemHealthState: TelemetryVisualState,
 ): StatusBadgeView[] {
-  const source = formatProviderShortName(snapshot);
   const signalState = getSignalState(snapshot, streamStatus);
   const capabilities = getCapabilities(snapshot);
   const lapTimingState = getCapabilityVisualState(capabilities.lap_timing);
@@ -817,18 +914,13 @@ function buildTopStatuses(
     {
       id: "source",
       label: "Source",
-      value: snapshot ? `${source} LIVE` : source,
+      value: formatSourceStatusValue(snapshot, streamStatus),
       state: signalState,
     },
     {
       id: "link",
       label: "Link",
-      value:
-        streamStatus === "connected"
-          ? "STREAM OK"
-          : streamStatus === "connecting"
-            ? "CONNECTING"
-            : "DOWN",
+      value: formatLinkStatusValue(snapshot, streamStatus),
       state: signalState,
     },
     {
@@ -857,27 +949,19 @@ function buildLemonsTopStatuses(
   streamStatus: "connecting" | "connected" | "disconnected",
   systemHealthState: TelemetryVisualState,
 ): StatusBadgeView[] {
-  const source = formatProviderShortName(snapshot);
   const signalState = getSignalState(snapshot, streamStatus);
 
   return [
     {
       id: "source",
       label: "Source",
-      value: snapshot ? `${source} LIVE` : source,
+      value: formatSourceStatusValue(snapshot, streamStatus),
       state: signalState,
     },
     {
       id: "link",
       label: "Link",
-      value:
-        signalState === "warning"
-          ? "DEGRADED"
-          : streamStatus === "connected" && snapshot?.source.connection_state === "connected"
-            ? "CONNECTED"
-            : streamStatus === "connecting" || snapshot?.source.connection_state === "connecting"
-              ? "CONNECTING"
-              : "DOWN",
+      value: formatLinkStatusValue(snapshot, streamStatus),
       state: signalState,
     },
     {
@@ -903,7 +987,7 @@ function buildFocus(
       label: "Gear",
       value: gear === null ? "--" : gear === 0 ? "N" : String(gear),
       state: gear === null ? "unavailable" : "normal",
-      detail: gear === null ? "No gear data" : "Decoded gear",
+      detail: gear === null ? unavailableMetricDetail(snapshot, "No gear data") : "Decoded gear",
     },
     speed: {
       label: "Speed",
@@ -919,7 +1003,7 @@ function buildFocus(
       state: rpmState,
       detail:
         rpmState === "unavailable"
-          ? "Signal missing"
+          ? unavailableMetricDetail(snapshot, "Signal missing")
           : rpmState === "critical"
             ? "Redline"
             : rpmState === "warning"
@@ -966,6 +1050,7 @@ function buildEngineMetrics(
       unit: temperatureUnitLabel(displayPreferences.temperature_unit),
       state: oilTempState,
       detail: buildTemperatureDetail(
+        snapshot,
         oilTempState,
         snapshot?.engine.oil_temp_c,
         thresholds.oil_temp_warning_c,
@@ -980,6 +1065,7 @@ function buildEngineMetrics(
       unit: pressureUnitLabel(displayPreferences.pressure_unit),
       state: oilPressureState,
       detail: buildOilPressureDetail(
+        snapshot,
         oilPressureState,
         snapshot?.engine.oil_pressure_bar,
         rpm,
@@ -994,6 +1080,7 @@ function buildEngineMetrics(
       unit: temperatureUnitLabel(displayPreferences.temperature_unit),
       state: coolantState,
       detail: buildTemperatureDetail(
+        snapshot,
         coolantState,
         snapshot?.engine.water_temp_c,
         thresholds.water_temp_warning_c,
@@ -1031,7 +1118,7 @@ function buildSupportMetrics(
       value: formatMetric(snapshot?.engine.battery_voltage_v, 1),
       unit: "V",
       state: batteryState,
-      detail: buildBatteryDetail(batteryState, snapshot?.engine.battery_voltage_v),
+      detail: buildBatteryDetail(snapshot, batteryState, snapshot?.engine.battery_voltage_v),
     },
     {
       id: "fuel-level",
@@ -1040,6 +1127,7 @@ function buildSupportMetrics(
       unit: "%",
       state: fuelState,
       detail: buildFuelDetail(
+        snapshot,
         fuelState,
         snapshot?.fuel.level_percent,
         snapshot?.fuel.range_km,
@@ -1059,6 +1147,7 @@ function buildSupportMetrics(
           : "lambda",
       state: lambdaState,
       detail: buildLambdaDetail(
+        snapshot,
         lambdaState,
         snapshot?.engine.lambda_value,
         snapshot?.engine.afr,
@@ -1097,9 +1186,9 @@ function buildLemonsLapMetric(snapshot: TelemetrySnapshot | null): TelemetryCard
         : "normal",
     detail:
       !lapTimingAvailable
-        ? capabilities.lap_timing.detail
+        ? unavailableCapabilityDetail(snapshot, capabilities.lap_timing, "Lap count unavailable")
         : snapshot?.lap.lap_count === null || snapshot?.lap.lap_count === undefined
-          ? "Lap count unavailable"
+          ? unavailableMetricDetail(snapshot, "Lap count unavailable")
           : "Completed laps",
   };
 }
@@ -1125,6 +1214,7 @@ function buildLemonsSecondaryMetrics(
       unit: "%",
       state: fuelState,
       detail: buildFuelDetail(
+        snapshot,
         fuelState,
         snapshot?.fuel.level_percent,
         snapshot?.fuel.range_km,
@@ -1137,7 +1227,7 @@ function buildLemonsSecondaryMetrics(
       value: formatMetric(snapshot?.engine.battery_voltage_v, 1),
       unit: "V",
       state: batteryState,
-      detail: buildBatteryDetail(batteryState, snapshot?.engine.battery_voltage_v),
+      detail: buildBatteryDetail(snapshot, batteryState, snapshot?.engine.battery_voltage_v),
     },
     {
       id: "afr",
@@ -1145,7 +1235,7 @@ function buildLemonsSecondaryMetrics(
       value: formatMetric(snapshot?.engine.afr, 1),
       unit: "afr",
       state: afrState,
-      detail: buildAfrDetail(afrState, snapshot?.engine.afr),
+      detail: buildAfrDetail(snapshot, afrState, snapshot?.engine.afr),
     },
   ];
 }
@@ -1269,9 +1359,9 @@ export function buildDriverNormalViewModel(args: BuildDriverScreenArgs): DriverN
             : "normal",
         detail:
           !lapTimingAvailable
-            ? capabilities.lap_timing.detail
+            ? unavailableCapabilityDetail(args.snapshot, capabilities.lap_timing, "Lap timer unavailable")
             : args.snapshot?.lap.current_lap_time_ms === null || args.snapshot?.lap.current_lap_time_ms === undefined
-              ? "Lap timer unavailable"
+              ? unavailableMetricDetail(args.snapshot, "Lap timer unavailable")
               : "Live lap timer",
         emphasis: "primary",
       },
@@ -1286,9 +1376,9 @@ export function buildDriverNormalViewModel(args: BuildDriverScreenArgs): DriverN
             : "normal",
         detail:
           !lapTimingAvailable
-            ? capabilities.lap_timing.detail
+            ? unavailableCapabilityDetail(args.snapshot, capabilities.lap_timing, "No best lap yet")
             : args.snapshot?.lap.best_lap_time_ms === null || args.snapshot?.lap.best_lap_time_ms === undefined
-              ? "No best lap yet"
+              ? unavailableMetricDetail(args.snapshot, "No best lap yet")
               : "Best this session",
         emphasis: "primary",
       },
@@ -1308,9 +1398,9 @@ export function buildDriverNormalViewModel(args: BuildDriverScreenArgs): DriverN
                   : "normal",
         detail:
           !lapTimingAvailable
-            ? capabilities.lap_timing.detail
+            ? unavailableCapabilityDetail(args.snapshot, capabilities.lap_timing, "No reference lap yet")
             : args.snapshot?.lap.delta_ms === null || args.snapshot?.lap.delta_ms === undefined
-              ? "No reference lap yet"
+              ? unavailableMetricDetail(args.snapshot, "No reference lap yet")
               : args.snapshot.lap.delta_ms > 0
                 ? "Behind best lap"
                 : "Ahead of best lap",
@@ -1327,9 +1417,9 @@ export function buildDriverNormalViewModel(args: BuildDriverScreenArgs): DriverN
             : "normal",
         detail:
           !lapTimingAvailable
-            ? capabilities.lap_timing.detail
+            ? unavailableCapabilityDetail(args.snapshot, capabilities.lap_timing, "Lap count unavailable")
             : args.snapshot?.lap.lap_count === null || args.snapshot?.lap.lap_count === undefined
-              ? "Lap count unavailable"
+              ? unavailableMetricDetail(args.snapshot, "Lap count unavailable")
               : "Completed laps",
         emphasis: "secondary",
       },
@@ -1347,9 +1437,9 @@ export function buildDriverNormalViewModel(args: BuildDriverScreenArgs): DriverN
                 : "normal",
         detail:
           !sessionClockAvailable
-            ? capabilities.session_clock.detail
+            ? unavailableCapabilityDetail(args.snapshot, capabilities.session_clock, "Session clock unavailable")
             : args.snapshot?.session.session_time_ms === null || args.snapshot?.session.session_time_ms === undefined
-              ? "Session clock unavailable"
+              ? unavailableMetricDetail(args.snapshot, "Session clock unavailable")
               : capabilities.session_clock.level === "limited"
                 ? capabilities.session_clock.detail
                 : "Session clock",

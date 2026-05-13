@@ -127,6 +127,20 @@ def test_warning_engine_does_not_emit_alerts_for_display_only_or_advisory_thresh
     assert alerts == []
 
 
+def test_warning_engine_does_not_emit_alerts_for_unavailable_metrics() -> None:
+    engine = build_warning_engine()
+    snapshot = build_snapshot(
+        oil_pressure_bar=None,
+        water_temp_c=None,
+        oil_temp_c=None,
+        fuel_level_percent=None,
+    )
+
+    alerts = engine.evaluate(snapshot)
+
+    assert alerts == []
+
+
 def test_warning_engine_prefers_critical_over_warning_for_the_same_metric() -> None:
     engine = build_warning_engine()
     snapshot = build_snapshot(oil_pressure_bar=0.9)
