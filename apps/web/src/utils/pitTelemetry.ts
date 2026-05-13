@@ -13,6 +13,8 @@ import {
 } from "./lemonsTelemetry";
 import { formatDuration, formatMetric, formatPressure, pressureUnitLabel } from "./format";
 
+const UNAVAILABLE_VIA_CONNECTION_METHOD = "Unavailable via connection method";
+
 export interface PitMetricGroup {
   id: string;
   label: string;
@@ -97,6 +99,23 @@ function infoCard(
   };
 }
 
+function unavailableMetricDetail(
+  snapshot: TelemetrySnapshot | null,
+  fallback: string,
+): string {
+  if (!snapshot || snapshot.source.provider === "simulator") {
+    return fallback;
+  }
+  if (
+    snapshot.source.connection_state === "fault" ||
+    snapshot.source.connection_state === "disconnected" ||
+    !snapshot.source.connected
+  ) {
+    return "No live samples";
+  }
+  return UNAVAILABLE_VIA_CONNECTION_METHOD;
+}
+
 function buildFuelPressureCard(
   snapshot: TelemetrySnapshot | null,
   displayPreferences: DisplayPreferences,
@@ -107,7 +126,7 @@ function buildFuelPressureCard(
     return unavailableCard(
       "pit-fuel-pressure",
       "Fuel Pressure",
-      "Feed unavailable",
+      unavailableMetricDetail(snapshot, "Feed unavailable"),
       pressureUnitLabel(displayPreferences.pressure_unit),
     );
   }
@@ -218,7 +237,11 @@ export function buildPitDashboardViewModel({
       label: "Intake / Air",
       metrics: [
         base.supportMetrics[2],
-        unavailableCard("pit-map", "MAP / Air", "Feed unavailable"),
+        unavailableCard(
+          "pit-map",
+          "MAP / Air",
+          unavailableMetricDetail(snapshot, "Feed unavailable"),
+        ),
       ],
     },
     {

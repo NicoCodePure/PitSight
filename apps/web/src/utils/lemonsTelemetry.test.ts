@@ -159,6 +159,16 @@ describe("buildDriverLemonsViewModel", () => {
 
     expect(view.focus.speed.value).toBe("96");
     expect(view.focus.speed.detail).toBe("Vehicle speed");
+    expect(view.focus.gear.detail).toBe("Unavailable via connection method");
+    expect(view.engineMetrics.find((metric) => metric.id === "oil-pressure")?.detail).toBe(
+      "Unavailable via connection method",
+    );
+    expect(view.engineMetrics.find((metric) => metric.id === "oil-temp")?.detail).toBe(
+      "Unavailable via connection method",
+    );
+    expect(view.alerts.some((alert) => alert.title.includes("SENSOR UNAVAILABLE"))).toBe(false);
+    expect(view.topStatuses.find((status) => status.id === "source")?.value).toBe("OBD2 LIVE");
+    expect(view.topStatuses.find((status) => status.id === "link")?.value).toBe("CONNECTED");
   });
 
   it("uses GPS speed only as a fallback when vehicle speed is unavailable", () => {
@@ -335,7 +345,7 @@ describe("buildDriverLemonsViewModel", () => {
     expect(view.engineMetrics[0]?.label).toBe("Oil Temp");
     expect(view.lapMetric.value).toBe("--");
     expect(view.lapMetric.state).toBe("unavailable");
-    expect(view.lapMetric.detail).toContain("Lap timing is not available");
+    expect(view.lapMetric.detail).toBe("Unavailable via connection method");
     expect(view.summary).toBe("DICTATOR live. Engine survival metrics stable.");
   });
 
@@ -353,6 +363,53 @@ describe("buildDriverLemonsViewModel", () => {
     expect(view.focus.speed.value).toBe("--");
     expect(view.focus.rpm.value).toBe("--");
     expect(view.lapMetric.value).toBe("--");
+  });
+
+  it("does not label disconnected OBD2 snapshots as live", () => {
+    const view = buildDriverLemonsViewModel({
+      snapshot: buildSnapshot({
+        source: {
+          provider: "obd2",
+          transport: "COM5",
+          protocol: "elm327",
+          connection_state: "fault",
+          connected: false,
+          raw_capture_enabled: false,
+          details: {
+            detail: "No OBD2 adapter connection is available on COM5.",
+          },
+        },
+        engine: {
+          speed_kph: null,
+          rpm: null,
+          gear: null,
+          water_temp_c: null,
+          oil_temp_c: null,
+          oil_pressure_bar: null,
+          battery_voltage_v: null,
+          lambda_value: null,
+          afr: null,
+          intake_temp_c: null,
+          throttle_position_pct: null,
+        },
+        gps: {
+          latitude: null,
+          longitude: null,
+          speed_kph: null,
+          fix_state: null,
+        },
+      }),
+      session: null,
+      streamStatus: "connected",
+      thresholds: THRESHOLDS,
+      displayPreferences: DISPLAY,
+    });
+
+    expect(view.topStatuses.find((status) => status.id === "source")?.value).toBe("OBD2 FAULT");
+    expect(view.topStatuses.find((status) => status.id === "link")?.value).toBe("DOWN");
+    expect(view.alerts[0]?.title).toBe("TELEMETRY SIGNAL LOST");
+    expect(view.focus.speed.detail).toBe("No live samples");
+    expect(view.alerts.some((alert) => alert.title.includes("SENSOR UNAVAILABLE"))).toBe(false);
   });
 
   it("marks missing core sensors as unavailable without showing zero values", () => {
@@ -468,7 +525,7 @@ describe("buildDriverNormalViewModel", () => {
     expect(view.topStatuses.find((status) => status.id === "lap-support")?.value).toBe("UNAVAILABLE");
     expect(view.topStatuses.find((status) => status.id === "track-support")?.value).toBe("LIMITED");
     expect(view.timingMetrics[0]?.state).toBe("unavailable");
-    expect(view.timingMetrics[0]?.detail).toContain("Lap timing is not available");
+    expect(view.timingMetrics[0]?.detail).toBe("Unavailable via connection method");
     expect(view.timingMetrics[4]?.state).toBe("advisory");
     expect(view.timingMetrics[4]?.detail).toContain("not track-aware or lap-aware");
     expect(view.summary).toBe("OBD2 live. Lap timing unavailable; session clock limited.");

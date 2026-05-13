@@ -114,6 +114,38 @@ class SimulatorTelemetryProvider(TelemetryProvider):
             projected_best_elapsed = int(best_lap * min(max(lap_progress, 0.0), 1.0))
             lap_delta = int(current_lap_elapsed * 1000) - projected_best_elapsed
 
+        metrics = {
+            "source_state": ConnectionState.CONNECTED,
+            "lap_count": lap_count,
+            "lap_time": int(current_lap_elapsed * 1000),
+            "previous_lap": previous_lap,
+            "best_lap": best_lap,
+            "optimal_lap_estimate": optimal_lap,
+            "delta": lap_delta,
+            "session_elapsed": int(elapsed * 1000),
+            "drive_time": int(elapsed * 1000),
+            "stint_time": int(elapsed * 1000),
+            "speed": round(speed_kph, 1),
+            "rpm": round(rpm, 0),
+            "gear": gear,
+            "coolant_temp": round(water_temp_c, 1),
+            "oil_temp": round(oil_temp_c, 1),
+            "oil_pressure": round(max(0.6, oil_pressure_bar), 2),
+            "battery_voltage": round(max(10.8, battery_voltage_v), 2),
+            "fuel_pressure": round(max(1.8, fuel_pressure_bar), 2),
+            "fuel_level": round(self._fuel_level, 1),
+            "fuel_range": round(self._fuel_level * 1.8, 1),
+            "lambda": round(lambda_value, 3),
+            "afr": round(afr, 2),
+            "intake_temp": round(intake_temp_c, 1),
+            "throttle_position": round(throttle_position_pct, 1),
+            "gps_latitude": round(latitude, 6),
+            "gps_longitude": round(longitude, 6),
+            "gps_speed": round(gps_speed_kph, 1),
+            "gps_fix_state": GPSFixState.FIX_3D,
+            "camera_state": CameraState.UNAVAILABLE,
+        }
+
         snapshot = build_snapshot_from_canonical(
             session_id=self._session_id,
             sequence=self._sequence,
@@ -128,39 +160,14 @@ class SimulatorTelemetryProvider(TelemetryProvider):
                 details={
                     "profile": "mvp-sim",
                     "hz": round(1.0 / self.metadata.poll_interval_seconds, 2),
+                    "available_metrics": [
+                        metric_key
+                        for metric_key, value in metrics.items()
+                        if value is not None
+                    ],
                 },
             ),
-            metrics={
-                "source_state": ConnectionState.CONNECTED,
-                "lap_count": lap_count,
-                "lap_time": int(current_lap_elapsed * 1000),
-                "previous_lap": previous_lap,
-                "best_lap": best_lap,
-                "optimal_lap_estimate": optimal_lap,
-                "delta": lap_delta,
-                "session_elapsed": int(elapsed * 1000),
-                "drive_time": int(elapsed * 1000),
-                "stint_time": int(elapsed * 1000),
-                "speed": round(speed_kph, 1),
-                "rpm": round(rpm, 0),
-                "gear": gear,
-                "coolant_temp": round(water_temp_c, 1),
-                "oil_temp": round(oil_temp_c, 1),
-                "oil_pressure": round(max(0.6, oil_pressure_bar), 2),
-                "battery_voltage": round(max(10.8, battery_voltage_v), 2),
-                "fuel_pressure": round(max(1.8, fuel_pressure_bar), 2),
-                "fuel_level": round(self._fuel_level, 1),
-                "fuel_range": round(self._fuel_level * 1.8, 1),
-                "lambda": round(lambda_value, 3),
-                "afr": round(afr, 2),
-                "intake_temp": round(intake_temp_c, 1),
-                "throttle_position": round(throttle_position_pct, 1),
-                "gps_latitude": round(latitude, 6),
-                "gps_longitude": round(longitude, 6),
-                "gps_speed": round(gps_speed_kph, 1),
-                "gps_fix_state": GPSFixState.FIX_3D,
-                "camera_state": CameraState.UNAVAILABLE,
-            },
+            metrics=metrics,
         )
         self._sequence += 1
         return snapshot

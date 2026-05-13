@@ -142,6 +142,46 @@ describe("buildPitDashboardViewModel", () => {
     expect(fuelPressure?.detail).toContain("Diagnostic only");
   });
 
+  it("shows OBD2 missing pit metrics as unavailable via connection method", () => {
+    const snapshot = buildSnapshot();
+    snapshot.source = {
+      provider: "obd2",
+      transport: "COM5",
+      protocol: "elm327",
+      connection_state: "connected",
+      connected: true,
+      raw_capture_enabled: false,
+      details: {
+        available_metrics: ["rpm", "speed", "coolant_temp", "battery_voltage"],
+        unavailable_metrics: ["fuel_pressure"],
+      },
+    };
+    snapshot.fuel.pressure_bar = null;
+
+    const view = buildPitDashboardViewModel({
+      snapshot,
+      alerts: [] satisfies AlertEvent[],
+      events: [] satisfies SystemEvent[],
+      session: {
+        session_id: "session-1",
+        provider: "obd2",
+        started_at: "2026-03-25T09:55:00.000Z",
+      } satisfies SessionRecord,
+      streamStatus: "connected",
+      displayPreferences: DEFAULT_APP_SETTINGS.effective.shared.units,
+      settings: DEFAULT_APP_SETTINGS,
+    });
+
+    const fuelGroup = view.metricGroups.find((group) => group.id === "fuel");
+    const fuelPressure = fuelGroup?.metrics.find((metric) => metric.id === "pit-fuel-pressure");
+    const intakeGroup = view.metricGroups.find((group) => group.id === "intake-air");
+    const mapAir = intakeGroup?.metrics.find((metric) => metric.id === "pit-map");
+
+    expect(fuelPressure?.detail).toBe("Unavailable via connection method");
+    expect(mapAir?.detail).toBe("Unavailable via connection method");
+    expect(view.topStatuses.find((status) => status.id === "source")?.value).toBe("OBD2 LIVE");
+  });
+
   it("surfaces limited lap and session capability states for real-source pit use", () => {
     const snapshot = buildSnapshot();
     snapshot.source.provider = "dictator";

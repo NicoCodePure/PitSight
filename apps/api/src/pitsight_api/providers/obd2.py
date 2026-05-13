@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
@@ -81,6 +81,10 @@ OBD2_BINDINGS: tuple[OBD2MetricBinding, ...] = (
     OBD2MetricBinding("intake_temp", ("INTAKE_TEMP",), unit_name="celsius"),
     OBD2MetricBinding("fuel_level", ("FUEL_LEVEL",), unit_name="percent"),
     OBD2MetricBinding("fuel_pressure", ("FUEL_PRESSURE",), unit_name="bar"),
+)
+
+OBD2_IMPLEMENTED_METRICS: tuple[str, ...] = tuple(
+    binding.canonical_key for binding in OBD2_BINDINGS
 )
 
 
@@ -395,6 +399,13 @@ class OBD2TelemetryProvider(TelemetryProvider):
             connection_state = ConnectionState.DEGRADED
             metrics["source_state"] = connection_state
 
+        observed_metric_set = set(observed_metrics)
+        unavailable_metrics = [
+            metric_key
+            for metric_key in OBD2_IMPLEMENTED_METRICS
+            if metric_key not in observed_metric_set
+        ]
+
         source_status = SourceStatus(
             provider=ProviderName.OBD2,
             transport=client_status.port_name or self.metadata.transport,
@@ -407,6 +418,9 @@ class OBD2TelemetryProvider(TelemetryProvider):
                 "configured_port": self.client_config.port or "AUTO",
                 "configured_protocol": self.client_config.protocol or "AUTO",
                 "detail": client_status.detail,
+                "implemented_metrics": list(OBD2_IMPLEMENTED_METRICS),
+                "available_metrics": observed_metrics,
+                "unavailable_metrics": unavailable_metrics,
                 "supported_metrics": supported_metrics,
                 "observed_metrics": observed_metrics,
                 "query_error_count": len(query_errors),
