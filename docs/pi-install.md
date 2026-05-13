@@ -16,7 +16,39 @@ For OBD2 testing later, use an ELM327-compatible adapter. USB adapters usually a
 
 ## GitHub Install Flow
 
-Use the safer download-inspect-run flow during early testing:
+Use the safer download-inspect-run flow. Inspecting `install.sh` with `less` before running it is recommended:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NicoCodePure/PitSight/main/install.sh -o install.sh
+less install.sh
+chmod +x install.sh
+sudo ./install.sh
+```
+
+For a fork, private repo, or non-default branch:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/<branch>/install.sh -o install.sh
+less install.sh
+chmod +x install.sh
+sudo PITSIGHT_REPO_URL=https://github.com/<owner>/<repo>.git PITSIGHT_BRANCH=<branch> ./install.sh
+```
+
+`install.sh` is only a small bootstrap wrapper. It defaults to `PITSIGHT_REPO_URL=https://github.com/NicoCodePure/PitSight.git` and `PITSIGHT_BRANCH=main`, then calls `scripts/install-pi.sh`, which remains the real installer. If `scripts/install-pi.sh` is not present because `install.sh` was downloaded as a raw file, the wrapper fetches the real installer from GitHub.
+
+For a private GitHub repo, configure a non-interactive read credential on the Pi first, then set `PITSIGHT_REPO_URL` to a URL that `git clone` can fetch. Prefer a deploy key or fine-grained read-only token. If you put a token directly in an HTTPS URL, Git may persist it in the checkout's remote config, so use a short-lived or rotated credential.
+
+The shorter one-line command is available, but it is less safe because it skips the inspect step:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NicoCodePure/PitSight/main/install.sh | sudo bash
+```
+
+Do not use the one-line command as the primary install method during early testing.
+
+## Advanced Direct Installer Flow
+
+You can also download and run the real installer directly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/NicoCodePure/PitSight/main/scripts/install-pi.sh -o install-pi.sh
@@ -25,24 +57,17 @@ chmod +x install-pi.sh
 sudo PITSIGHT_REPO_URL=https://github.com/NicoCodePure/PitSight.git PITSIGHT_BRANCH=main ./install-pi.sh
 ```
 
-For a fork, private repo, or non-default branch:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/<branch>/scripts/install-pi.sh -o install-pi.sh
-less install-pi.sh
-chmod +x install-pi.sh
-sudo PITSIGHT_REPO_URL=https://github.com/<owner>/<repo>.git PITSIGHT_BRANCH=<branch> ./install-pi.sh
-```
-
-When the installer is run from a local Git checkout, it can infer the repo URL and current branch from that checkout. When the installer is downloaded as a standalone raw script, pass `PITSIGHT_REPO_URL` explicitly so fork and private repo users do not accidentally install from the wrong remote.
-
-For a private GitHub repo, configure a non-interactive read credential on the Pi first, then set `PITSIGHT_REPO_URL` to a URL that `git clone` can fetch. Prefer a deploy key or fine-grained read-only token. If you put a token directly in an HTTPS URL, Git may persist it in the checkout's remote config, so use a short-lived or rotated credential.
-
-Do not use `curl | bash` as the primary install method yet.
+When `scripts/install-pi.sh` is run from a local Git checkout, it can infer the repo URL and current branch from that checkout. When it is downloaded as a standalone raw script, pass `PITSIGHT_REPO_URL` explicitly so fork and private repo users do not accidentally install from the wrong remote.
 
 ## Local Repo Install Flow
 
 From a checked-out repo on the Pi:
+
+```bash
+sudo bash install.sh
+```
+
+To bypass the wrapper and call the real installer directly:
 
 ```bash
 sudo bash scripts/install-pi.sh
@@ -57,19 +82,19 @@ sudo \
   PITSIGHT_DASHBOARD_ROUTE=/driver/lemons \
   PITSIGHT_API_PORT=8000 \
   PITSIGHT_WEB_PORT=4173 \
-  bash scripts/install-pi.sh
+  bash install.sh
 ```
 
 For a headless Pi or a server-only install, skip desktop autostart setup:
 
 ```bash
-sudo PITSIGHT_CONFIGURE_KIOSK=0 bash scripts/install-pi.sh
+sudo PITSIGHT_CONFIGURE_KIOSK=0 bash install.sh
 ```
 
 On a multi-user Pi, choose the desktop user for Chromium autostart explicitly:
 
 ```bash
-sudo PITSIGHT_KIOSK_USER=pi bash scripts/install-pi.sh
+sudo PITSIGHT_KIOSK_USER=pi bash install.sh
 ```
 
 ## What Gets Installed
