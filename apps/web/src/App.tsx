@@ -4,6 +4,7 @@ import { useAppSettings } from "./hooks/useAppSettings";
 import { useDeviceRuntimeHeartbeat } from "./hooks/useDeviceRuntimeHeartbeat";
 import { useTelemetryStream } from "./hooks/useTelemetryStream";
 import type { AppSettingsSnapshot, DashboardMode } from "./types/appSettings";
+import { DeviceMenuOverlay } from "./components/device/DeviceMenuOverlay";
 import { DriverLemonsPage } from "./pages/DriverLemonsPage";
 import { DriverNormalPage } from "./pages/DriverNormalPage";
 import { PitDashboardPage } from "./pages/PitDashboardPage";
@@ -68,6 +69,7 @@ export default function App() {
   const telemetry = useTelemetryStream();
   const appSettings = useAppSettings();
   const showModeNav = !location.pathname.startsWith("/driver/");
+  const showDeviceMenu = location.pathname === "/driver/normal" || location.pathname === "/driver/lemons";
   const activeDashboardMode = getRouteDashboardMode(location.pathname);
 
   useDeviceRuntimeHeartbeat({
@@ -93,6 +95,19 @@ export default function App() {
             Settings
           </NavLink>
         </nav>
+      ) : null}
+
+      {showDeviceMenu ? (
+        <DeviceMenuOverlay
+          settings={appSettings.settings}
+          loading={appSettings.loading}
+          saving={appSettings.saving}
+          error={appSettings.error}
+          source={telemetry.snapshot?.source ?? null}
+          streamStatus={telemetry.streamStatus}
+          currentPath={location.pathname}
+          onSave={appSettings.save}
+        />
       ) : null}
 
       <Routes>
